@@ -1,5 +1,5 @@
 use crate::constants::{BUS_NAME, CLIENT_PATH};
-use crate::local::service::LocalService;
+use crate::flatpak::service::FlatpakService;
 use crate::types::results::EmptyResult;
 use crate::{auth, plugin};
 use tokio::sync::Mutex;
@@ -8,10 +8,9 @@ use zbus::{connection, zvariant::ObjectPath, Connection};
 lazy_static::lazy_static! {
     pub static ref CONNECTION: Mutex<Option<Connection>> =
         Mutex::new(None);
-
 }
 
-pub async fn build_connection(service: LocalService) -> EmptyResult {
+pub async fn build_connection(service: FlatpakService) -> EmptyResult {
     let plugin = plugin::plugin_interface::Plugin {};
     let cryptography = auth::cryptography::Cryptography::new(service.clone());
     let library_provider = plugin::library_provider::LibraryProvider::new(service.clone());

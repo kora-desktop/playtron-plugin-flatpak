@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::utils::date::optional_date_serializer;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use num_derive::FromPrimitive;
 use thiserror::Error;
 
