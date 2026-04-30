@@ -1,5 +1,5 @@
 #![allow(clippy::too_many_arguments)]
-use crate::constants::LIBRARY_PROVIDER_NAME;
+use crate::constants::{LIBRARY_PROVIDER_ID, LIBRARY_PROVIDER_NAME};
 use crate::flatpak::service::FlatpakService;
 use crate::types::app::{DownloadStage, EulaEntry, InstalledApp, LaunchOption, ProviderItem};
 use crate::types::cloud_sync::CloudPath;
@@ -28,7 +28,7 @@ impl LibraryProvider {
 
     #[zbus(property)]
     async fn provider(&self) -> &str {
-        "local"
+        LIBRARY_PROVIDER_ID
     }
 
     #[zbus(property)]
@@ -185,19 +185,6 @@ impl LibraryProvider {
     ) -> fdo::Result<i32> {
         let app_id_owned = app_id.to_string();
 
-        emitter
-            .install_started(
-                app_id_owned.clone(),
-                String::new(),
-                String::new(),
-                0,
-                true,
-                "linux".to_string(),
-                String::new(),
-            )
-            .await
-            .ok();
-
         let (tx, mut rx) = mpsc::channel(32);
 
         let service = self.service.clone();
@@ -205,13 +192,35 @@ impl LibraryProvider {
         let install_handle =
             tokio::spawn(async move { service.install_with_progress(&app_id_task, tx).await });
 
+        let install_dir = format!(
+            "{}/.local/share/flatpak/app/{}",
+            dirs::home_dir().unwrap_or_default().to_string_lossy(),
+            app_id
+        );
+
+        let mut started = false;
         while let Some(progress) = rx.recv().await {
+            if !started {
+                emitter
+                    .install_started(
+                        app_id_owned.clone(),
+                        String::new(),
+                        install_dir.clone(),
+                        progress.total_size,
+                        true,
+                        "linux".to_string(),
+                        String::new(),
+                    )
+                    .await
+                    .ok();
+                started = true;
+            }
             emitter
                 .install_progressed(
                     app_id_owned.clone(),
                     progress.stage,
                     progress.bytes_transferred,
-                    0,
+                    progress.total_size,
                     progress.progress,
                 )
                 .await

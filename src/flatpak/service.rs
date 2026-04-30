@@ -2,7 +2,6 @@ use log::{error, info, warn};
 use rsa::pkcs1::EncodeRsaPublicKey;
 use rsa::pkcs8::LineEnding;
 use rsa::{RsaPrivateKey, RsaPublicKey};
-use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::mpsc;
 use zbus::fdo;
 
@@ -24,6 +23,7 @@ pub struct InstallProgress {
     pub stage: DownloadStage,
     pub progress: f64,
     pub bytes_transferred: u64,
+    pub total_size: u64,
 }
 
 #[derive(Clone)]
@@ -178,7 +178,7 @@ impl FlatpakService {
                 .map(|d| vec![d])
                 .unwrap_or_default(),
             app_type: crate::types::app::PlaytronAppType::Game,
-            use_container_runtime: true,
+            use_container_runtime: false,
         };
 
         Ok(serde_json::to_string(&metadata)?)
@@ -210,6 +210,7 @@ impl FlatpakService {
         app_id: &str,
         progress_tx: mpsc::Sender<InstallProgress>,
     ) -> ResultWithError<()> {
+        let total_size = FlatpakClient::get_download_size(app_id).await;
         let mut child = FlatpakClient::install(app_id).await?;
 
         progress_tx
@@ -217,21 +218,45 @@ impl FlatpakService {
                 stage: DownloadStage::Downloading,
                 progress: 0.0,
                 bytes_transferred: 0,
+                total_size,
             })
             .await
             .ok();
 
-        if let Some(stderr) = child.stderr.take() {
-            let reader = BufReader::new(stderr);
-            let mut lines = reader.lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                if let Some(progress) = parse_progress_line(&line) {
-                    progress_tx.send(progress).await.ok();
+        let repo_path = dirs::home_dir()
+            .unwrap_or_default()
+            .join(".local/share/flatpak/repo");
+        let baseline_size = dir_size(&repo_path);
+
+        let progress_tx_poll = progress_tx.clone();
+        let poll_handle = tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                let current_size = dir_size(&repo_path);
+                let downloaded = current_size.saturating_sub(baseline_size);
+                let pct = if total_size > 0 {
+                    (downloaded as f64 / total_size as f64 * 100.0).min(99.0)
+                } else {
+                    0.0
+                };
+                if progress_tx_poll
+                    .send(InstallProgress {
+                        stage: DownloadStage::Downloading,
+                        progress: pct,
+                        bytes_transferred: downloaded.min(total_size),
+                        total_size,
+                    })
+                    .await
+                    .is_err()
+                {
+                    break;
                 }
             }
-        }
+        });
 
         let status = child.wait().await?;
+        poll_handle.abort();
+
         if !status.success() {
             return Err(format!("Failed to install {}", app_id).into());
         }
@@ -240,7 +265,8 @@ impl FlatpakService {
             .send(InstallProgress {
                 stage: DownloadStage::Downloading,
                 progress: 100.0,
-                bytes_transferred: 0,
+                bytes_transferred: total_size,
+                total_size,
             })
             .await
             .ok();
@@ -268,6 +294,7 @@ impl FlatpakService {
         app_id: &str,
         progress_tx: mpsc::Sender<InstallProgress>,
     ) -> ResultWithError<()> {
+        let total_size = FlatpakClient::get_download_size(app_id).await;
         let mut child = FlatpakClient::update(app_id).await?;
 
         progress_tx
@@ -275,21 +302,45 @@ impl FlatpakService {
                 stage: DownloadStage::Downloading,
                 progress: 0.0,
                 bytes_transferred: 0,
+                total_size,
             })
             .await
             .ok();
 
-        if let Some(stderr) = child.stderr.take() {
-            let reader = BufReader::new(stderr);
-            let mut lines = reader.lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                if let Some(progress) = parse_progress_line(&line) {
-                    progress_tx.send(progress).await.ok();
+        let repo_path = dirs::home_dir()
+            .unwrap_or_default()
+            .join(".local/share/flatpak/repo");
+        let baseline_size = dir_size(&repo_path);
+
+        let progress_tx_poll = progress_tx.clone();
+        let poll_handle = tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                let current_size = dir_size(&repo_path);
+                let downloaded = current_size.saturating_sub(baseline_size);
+                let pct = if total_size > 0 {
+                    (downloaded as f64 / total_size as f64 * 100.0).min(99.0)
+                } else {
+                    0.0
+                };
+                if progress_tx_poll
+                    .send(InstallProgress {
+                        stage: DownloadStage::Downloading,
+                        progress: pct,
+                        bytes_transferred: downloaded.min(total_size),
+                        total_size,
+                    })
+                    .await
+                    .is_err()
+                {
+                    break;
                 }
             }
-        }
+        });
 
         let status = child.wait().await?;
+        poll_handle.abort();
+
         if !status.success() {
             return Err(format!("Failed to update {}", app_id).into());
         }
@@ -298,7 +349,8 @@ impl FlatpakService {
             .send(InstallProgress {
                 stage: DownloadStage::Downloading,
                 progress: 100.0,
-                bytes_transferred: 0,
+                bytes_transferred: total_size,
+                total_size,
             })
             .await
             .ok();
@@ -371,31 +423,20 @@ impl FlatpakService {
     }
 }
 
-fn parse_progress_line(line: &str) -> Option<InstallProgress> {
-    let lower = line.to_lowercase();
-
-    if lower.contains("downloading") || lower.contains("fetching") {
-        Some(InstallProgress {
-            stage: DownloadStage::Downloading,
-            progress: 25.0,
-            bytes_transferred: 0,
+fn dir_size(path: &std::path::Path) -> u64 {
+    std::process::Command::new("du")
+        .args(["-sb", &path.to_string_lossy()])
+        .output()
+        .ok()
+        .and_then(|o| {
+            if o.status.success() {
+                let s = String::from_utf8_lossy(&o.stdout);
+                s.split_whitespace().next()?.parse::<u64>().ok()
+            } else {
+                None
+            }
         })
-    } else if lower.contains("verifying") {
-        Some(InstallProgress {
-            stage: DownloadStage::Verifying,
-            progress: 75.0,
-            bytes_transferred: 0,
-        })
-    } else if lower.contains("installing") || lower.contains("deploying") {
-        Some(InstallProgress {
-            stage: DownloadStage::Downloading,
-            progress: 50.0,
-            bytes_transferred: 0,
-        })
-    } else {
-        warn!("Unrecognized flatpak progress line: {}", line);
-        None
-    }
+        .unwrap_or(0)
 }
 
 fn parse_size(size_str: &str) -> u64 {

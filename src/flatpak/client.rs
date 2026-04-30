@@ -171,4 +171,49 @@ impl FlatpakClient {
             .map(|s| s.success())
             .unwrap_or(false)
     }
+
+    pub async fn get_download_size(app_id: &str) -> u64 {
+        let output = Command::new("flatpak")
+            .args(["remote-info", "--user", "flathub", app_id])
+            .output()
+            .await;
+
+        match output {
+            Ok(o) if o.status.success() => {
+                let text = String::from_utf8_lossy(&o.stdout);
+                for line in text.lines() {
+                    let trimmed = line.trim();
+                    if let Some(value) = trimmed.strip_prefix("Download:") {
+                        return parse_size_output(value.trim());
+                    }
+                }
+                0
+            }
+            _ => 0,
+        }
+    }
+}
+
+fn parse_size_output(s: &str) -> u64 {
+    let s = s.trim();
+    if s.is_empty() {
+        return 0;
+    }
+    let parts: Vec<&str> = s.split_whitespace().collect();
+    if parts.len() < 2 {
+        return s.parse::<u64>().unwrap_or(0);
+    }
+    let num: f64 = parts[0].replace(',', ".").parse().unwrap_or(0.0);
+    let unit = parts[1].to_lowercase();
+    let multiplier: u64 = match unit.as_str() {
+        "kb" => 1_000,
+        "mb" => 1_000_000,
+        "gb" => 1_000_000_000,
+        "kib" => 1_024,
+        "mib" => 1_048_576,
+        "gib" => 1_073_741_824,
+        "bytes" | "b" => 1,
+        _ => 1,
+    };
+    (num * multiplier as f64) as u64
 }
