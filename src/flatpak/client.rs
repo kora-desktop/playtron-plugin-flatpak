@@ -5,14 +5,13 @@ use tokio::process::{Child, Command};
 use crate::types::results::ResultWithError;
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct InstalledFlatpak {
     pub app_id: String,
     pub name: String,
     pub version: String,
     pub size: String,
-    #[allow(dead_code)]
     pub origin: String,
-    #[allow(dead_code)]
     pub arch: String,
 }
 
@@ -85,7 +84,36 @@ impl FlatpakClient {
     pub async fn install(app_id: &str) -> ResultWithError<Child> {
         info!("Installing flatpak: {}", app_id);
         let child = Command::new("flatpak")
-            .args(["install", "--user", "-y", "flathub", app_id])
+            .args([
+                "install",
+                "--user",
+                "-y",
+                "--noninteractive",
+                "flathub",
+                app_id,
+            ])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+
+        Ok(child)
+    }
+
+    pub async fn install_bundle(path: &str) -> ResultWithError<Child> {
+        info!("Installing flatpak bundle: {}", path);
+        let child = Command::new("flatpak")
+            .args(["install", "--user", "-y", "--noninteractive", "--bundle", path])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+
+        Ok(child)
+    }
+
+    pub async fn install_flatpakref(path: &str) -> ResultWithError<Child> {
+        info!("Installing flatpak from ref: {}", path);
+        let child = Command::new("flatpak")
+            .args(["install", "--user", "-y", "--noninteractive", "--from", path])
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;
@@ -110,7 +138,7 @@ impl FlatpakClient {
     pub async fn update(app_id: &str) -> ResultWithError<Child> {
         info!("Updating flatpak: {}", app_id);
         let child = Command::new("flatpak")
-            .args(["update", "--user", "-y", app_id])
+            .args(["update", "--user", "-y", "--noninteractive", app_id])
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;

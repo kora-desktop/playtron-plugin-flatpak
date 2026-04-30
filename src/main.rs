@@ -26,7 +26,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     FlatpakClient::ensure_flathub_remote().await?;
 
-    let service = FlatpakService::new();
+    let service = FlatpakService::new().await;
     build_connection(service).await?;
     register_plugin().await;
 

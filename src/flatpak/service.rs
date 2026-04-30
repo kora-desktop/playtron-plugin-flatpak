@@ -1,7 +1,9 @@
-use log::{error, info};
+use log::{error, info, warn};
 use rsa::pkcs1::EncodeRsaPublicKey;
 use rsa::pkcs8::LineEnding;
 use rsa::{RsaPrivateKey, RsaPublicKey};
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::sync::mpsc;
 use zbus::fdo;
 
 use crate::config::{self, Config};
@@ -9,33 +11,44 @@ use crate::constants::LIBRARY_PROVIDER_ID;
 use crate::flathub::api::FlathubClient;
 use crate::flathub::types::SearchHit;
 use crate::types::app::{
-    AppType, InstalledApp, ItemMetadata, LaunchOption, LaunchType, PlaytronProvider, ProviderItem,
-    ReleaseState,
+    AppType, DownloadStage, InstalledApp, ItemMetadata, LaunchOption, LaunchType,
+    PlaytronProvider, ProviderItem, ReleaseState,
 };
 use crate::types::cloud_sync::CloudPath;
 use crate::types::results::ResultWithError;
 
+use super::catalog::CatalogCache;
 use super::client::FlatpakClient;
+
+pub struct InstallProgress {
+    pub stage: DownloadStage,
+    pub progress: f64,
+    pub bytes_transferred: u64,
+}
 
 #[derive(Clone)]
 pub struct FlatpakService {
     rsa: RsaPrivateKey,
     config: Config,
-}
-
-impl Default for FlatpakService {
-    fn default() -> Self {
-        Self::new()
-    }
+    catalog: Vec<ProviderItem>,
 }
 
 #[allow(dead_code)]
 impl FlatpakService {
-    pub fn new() -> Self {
+    pub async fn new() -> Self {
         let config = config::load_config();
         let mut rng = rand::thread_rng();
         let rsa = RsaPrivateKey::new(&mut rng, 2048).expect("failed to generate RSA key");
-        Self { rsa, config }
+
+        let catalog = match CatalogCache::load_or_fetch().await {
+            Ok(cache) => cache.to_provider_items(),
+            Err(e) => {
+                warn!("Failed to load catalog: {}", e);
+                Vec::new()
+            }
+        };
+
+        Self { rsa, config, catalog }
     }
 
     pub fn get_public_key(&self) -> String {
@@ -95,17 +108,26 @@ impl FlatpakService {
     pub async fn get_provider_items(&self) -> ResultWithError<Vec<ProviderItem>> {
         let installed = FlatpakClient::list_installed().await?;
 
-        let items = installed
+        let mut items: Vec<ProviderItem> = installed
             .into_iter()
             .map(|flat| ProviderItem {
                 id: flat.app_id,
                 name: flat.name,
                 provider: LIBRARY_PROVIDER_ID.to_string(),
-                app_type: AppType::Application,
+                app_type: AppType::Game,
                 release_state: ReleaseState::Released,
                 release_date: 0,
             })
             .collect();
+
+        let installed_ids: std::collections::HashSet<String> =
+            items.iter().map(|i| i.id.clone()).collect();
+
+        for catalog_item in &self.catalog {
+            if !installed_ids.contains(&catalog_item.id) {
+                items.push(catalog_item.clone());
+            }
+        }
 
         Ok(items)
     }
@@ -113,17 +135,21 @@ impl FlatpakService {
     pub async fn get_provider_item(&self, app_id: &str) -> ResultWithError<ProviderItem> {
         let installed = FlatpakClient::list_installed().await?;
 
-        installed
-            .into_iter()
-            .find(|f| f.app_id == app_id)
-            .map(|flat| ProviderItem {
+        if let Some(flat) = installed.into_iter().find(|f| f.app_id == app_id) {
+            return Ok(ProviderItem {
                 id: flat.app_id,
                 name: flat.name,
                 provider: LIBRARY_PROVIDER_ID.to_string(),
-                app_type: AppType::Application,
+                app_type: AppType::Game,
                 release_state: ReleaseState::Released,
                 release_date: 0,
-            })
+            });
+        }
+
+        self.catalog
+            .iter()
+            .find(|item| item.id == app_id)
+            .cloned()
             .ok_or_else(|| format!("App {} not found", app_id).into())
     }
 
@@ -138,6 +164,7 @@ impl FlatpakService {
                 provider: LIBRARY_PROVIDER_ID.to_string(),
                 provider_app_id: app_id.to_string(),
                 store_id: app_id.to_string(),
+                namespace: LIBRARY_PROVIDER_ID.to_string(),
                 ..Default::default()
             }],
             slug: app_id.to_string(),
@@ -151,7 +178,7 @@ impl FlatpakService {
                 .map(|d| vec![d])
                 .unwrap_or_default(),
             app_type: crate::types::app::PlaytronAppType::Game,
-            use_container_runtime: false,
+            use_container_runtime: true,
         };
 
         Ok(serde_json::to_string(&metadata)?)
@@ -178,6 +205,49 @@ impl FlatpakService {
         Ok(())
     }
 
+    pub async fn install_with_progress(
+        &self,
+        app_id: &str,
+        progress_tx: mpsc::Sender<InstallProgress>,
+    ) -> ResultWithError<()> {
+        let mut child = FlatpakClient::install(app_id).await?;
+
+        progress_tx
+            .send(InstallProgress {
+                stage: DownloadStage::Downloading,
+                progress: 0.0,
+                bytes_transferred: 0,
+            })
+            .await
+            .ok();
+
+        if let Some(stderr) = child.stderr.take() {
+            let reader = BufReader::new(stderr);
+            let mut lines = reader.lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                if let Some(progress) = parse_progress_line(&line) {
+                    progress_tx.send(progress).await.ok();
+                }
+            }
+        }
+
+        let status = child.wait().await?;
+        if !status.success() {
+            return Err(format!("Failed to install {}", app_id).into());
+        }
+
+        progress_tx
+            .send(InstallProgress {
+                stage: DownloadStage::Downloading,
+                progress: 100.0,
+                bytes_transferred: 0,
+            })
+            .await
+            .ok();
+
+        Ok(())
+    }
+
     pub async fn uninstall(&self, app_id: &str) -> fdo::Result<()> {
         FlatpakClient::uninstall(app_id)
             .await
@@ -193,9 +263,59 @@ impl FlatpakService {
         Ok(())
     }
 
+    pub async fn update_with_progress(
+        &self,
+        app_id: &str,
+        progress_tx: mpsc::Sender<InstallProgress>,
+    ) -> ResultWithError<()> {
+        let mut child = FlatpakClient::update(app_id).await?;
+
+        progress_tx
+            .send(InstallProgress {
+                stage: DownloadStage::Downloading,
+                progress: 0.0,
+                bytes_transferred: 0,
+            })
+            .await
+            .ok();
+
+        if let Some(stderr) = child.stderr.take() {
+            let reader = BufReader::new(stderr);
+            let mut lines = reader.lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                if let Some(progress) = parse_progress_line(&line) {
+                    progress_tx.send(progress).await.ok();
+                }
+            }
+        }
+
+        let status = child.wait().await?;
+        if !status.success() {
+            return Err(format!("Failed to update {}", app_id).into());
+        }
+
+        progress_tx
+            .send(InstallProgress {
+                stage: DownloadStage::Downloading,
+                progress: 100.0,
+                bytes_transferred: 0,
+            })
+            .await
+            .ok();
+
+        Ok(())
+    }
+
     pub async fn refresh(&self) -> ResultWithError<Vec<ProviderItem>> {
         info!("Refreshing installed flatpak apps");
         self.get_provider_items().await
+    }
+
+    pub async fn refresh_catalog(&mut self) -> ResultWithError<()> {
+        info!("Refreshing catalog from Flathub");
+        let cache = CatalogCache::fetch_fresh().await?;
+        self.catalog = cache.to_provider_items();
+        Ok(())
     }
 
     pub async fn pre_launch_hook(&self, _app_id: &str) -> fdo::Result<Vec<String>> {
@@ -208,6 +328,73 @@ impl FlatpakService {
         _platform: &str,
     ) -> fdo::Result<Vec<CloudPath>> {
         Ok(Vec::new())
+    }
+
+    pub async fn sync_installed_apps(&self) -> ResultWithError<Vec<ProviderItem>> {
+        info!("Syncing installed flatpak apps");
+        self.get_provider_items().await
+    }
+
+    pub async fn import(&self, app_id: &str, install_folder: &str) -> ResultWithError<()> {
+        let path = std::path::Path::new(install_folder);
+        let ext = path.extension().and_then(|e| e.to_str());
+
+        match ext {
+            Some("flatpakref") => {
+                let mut child = FlatpakClient::install_flatpakref(install_folder).await?;
+                let status = child.wait().await?;
+                if !status.success() {
+                    return Err(
+                        format!("Failed to import {} from {}", app_id, install_folder).into(),
+                    );
+                }
+                Ok(())
+            }
+            Some("flatpak") => {
+                let mut child = FlatpakClient::install_bundle(install_folder).await?;
+                let status = child.wait().await?;
+                if !status.success() {
+                    return Err(
+                        format!("Failed to import {} from {}", app_id, install_folder).into(),
+                    );
+                }
+                Ok(())
+            }
+            _ => {
+                warn!(
+                    "Ignoring import for {}: path '{}' is not a flatpak bundle or ref",
+                    app_id, install_folder
+                );
+                Ok(())
+            }
+        }
+    }
+}
+
+fn parse_progress_line(line: &str) -> Option<InstallProgress> {
+    let lower = line.to_lowercase();
+
+    if lower.contains("downloading") || lower.contains("fetching") {
+        Some(InstallProgress {
+            stage: DownloadStage::Downloading,
+            progress: 25.0,
+            bytes_transferred: 0,
+        })
+    } else if lower.contains("verifying") {
+        Some(InstallProgress {
+            stage: DownloadStage::Verifying,
+            progress: 75.0,
+            bytes_transferred: 0,
+        })
+    } else if lower.contains("installing") || lower.contains("deploying") {
+        Some(InstallProgress {
+            stage: DownloadStage::Downloading,
+            progress: 50.0,
+            bytes_transferred: 0,
+        })
+    } else {
+        warn!("Unrecognized flatpak progress line: {}", line);
+        None
     }
 }
 

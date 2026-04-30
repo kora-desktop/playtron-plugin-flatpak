@@ -1,9 +1,10 @@
 #![allow(clippy::too_many_arguments)]
-use crate::constants::{LIBRARY_PROVIDER_ID, LIBRARY_PROVIDER_NAME};
+use crate::constants::LIBRARY_PROVIDER_NAME;
 use crate::flatpak::service::FlatpakService;
 use crate::types::app::{DownloadStage, EulaEntry, InstalledApp, LaunchOption, ProviderItem};
 use crate::types::cloud_sync::CloudPath;
 use std::collections::HashMap;
+use tokio::sync::mpsc;
 use zbus::fdo;
 use zbus::object_server::SignalEmitter;
 use zbus_macros::interface;
@@ -27,7 +28,7 @@ impl LibraryProvider {
 
     #[zbus(property)]
     async fn provider(&self) -> &str {
-        LIBRARY_PROVIDER_ID
+        "local"
     }
 
     #[zbus(property)]
@@ -197,13 +198,37 @@ impl LibraryProvider {
             .await
             .ok();
 
-        match self.service.install(app_id).await {
-            Ok(()) => {
+        let (tx, mut rx) = mpsc::channel(32);
+
+        let service = self.service.clone();
+        let app_id_task = app_id_owned.clone();
+        let install_handle =
+            tokio::spawn(async move { service.install_with_progress(&app_id_task, tx).await });
+
+        while let Some(progress) = rx.recv().await {
+            emitter
+                .install_progressed(
+                    app_id_owned.clone(),
+                    progress.stage,
+                    progress.bytes_transferred,
+                    0,
+                    progress.progress,
+                )
+                .await
+                .ok();
+        }
+
+        match install_handle.await {
+            Ok(Ok(())) => {
+                emitter.install_completed(app_id_owned).await.ok();
+                Ok(0)
+            }
+            Ok(Err(e)) => {
                 emitter
-                    .install_completed(app_id_owned)
+                    .install_failed(app_id, &e.to_string())
                     .await
                     .ok();
-                Ok(0)
+                Err(fdo::Error::Failed(e.to_string()))
             }
             Err(e) => {
                 emitter
@@ -241,11 +266,32 @@ impl LibraryProvider {
         app_id: String,
         #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
     ) -> fdo::Result<()> {
-        match self.service.update(&app_id).await {
-            Ok(()) => {
+        let (tx, mut rx) = mpsc::channel(32);
+
+        let service = self.service.clone();
+        let app_id_task = app_id.clone();
+        let update_handle =
+            tokio::spawn(async move { service.update_with_progress(&app_id_task, tx).await });
+
+        while let Some(progress) = rx.recv().await {
+            emitter
+                .install_progressed(
+                    app_id.clone(),
+                    progress.stage,
+                    progress.bytes_transferred,
+                    0,
+                    progress.progress,
+                )
+                .await
+                .ok();
+        }
+
+        match update_handle.await {
+            Ok(Ok(())) => {
                 emitter.install_completed(app_id).await.ok();
                 Ok(())
             }
+            Ok(Err(e)) => Err(fdo::Error::Failed(e.to_string())),
             Err(e) => Err(fdo::Error::Failed(e.to_string())),
         }
     }
@@ -291,12 +337,25 @@ impl LibraryProvider {
         Ok(())
     }
 
-    async fn sync_installed_apps(&self) -> fdo::Result<()> {
+    async fn sync_installed_apps(
+        &self,
+        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
+    ) -> fdo::Result<()> {
         log::info!("sync_installed_apps");
-        Ok(())
+        match self.service.sync_installed_apps().await {
+            Ok(items) => {
+                emitter.library_updated(&items).await.ok();
+                Ok(())
+            }
+            Err(e) => Err(fdo::Error::Failed(e.to_string())),
+        }
     }
 
-    async fn import(&self, _app_id: &str, _install_folder: &str) -> fdo::Result<()> {
-        Ok(())
+    async fn import(&self, app_id: &str, install_folder: &str) -> fdo::Result<()> {
+        log::info!("import {} from {}", app_id, install_folder);
+        self.service
+            .import(app_id, install_folder)
+            .await
+            .map_err(|e| fdo::Error::Failed(e.to_string()))
     }
 }

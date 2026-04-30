@@ -5,7 +5,7 @@ use std::time::Duration;
 use crate::constants;
 use crate::types::results::ResultWithError;
 
-use super::types::{AppstreamInfo, SearchHit, SearchRequest, SearchResponse, VerificationStatus};
+use super::types::{AppstreamInfo, CollectionResponse, SearchHit, SearchRequest, SearchResponse, VerificationStatus};
 
 pub struct FlathubClient {
     client: Client,
@@ -64,5 +64,14 @@ impl FlathubClient {
         let response = self.client.get(&url).send().await?;
         let status: VerificationStatus = response.json().await?;
         Ok(status)
+    }
+
+    pub async fn get_verified_collection(&self) -> ResultWithError<CollectionResponse> {
+        let url = format!("{}/collection/verified", self.base_url);
+        debug!("Fetching verified collection");
+
+        let response = self.client.get(&url).send().await?;
+        let collection: CollectionResponse = response.json().await?;
+        Ok(collection)
     }
 }
