@@ -8,16 +8,83 @@ use zbus::fdo;
 use crate::config::{self, Config};
 use crate::constants::LIBRARY_PROVIDER_ID;
 use crate::flathub::api::FlathubClient;
-use crate::flathub::types::SearchHit;
+use crate::flathub::types::{Screenshot, SearchHit};
 use crate::types::app::{
     AppType, DownloadStage, InstalledApp, ItemMetadata, LaunchOption, LaunchType,
-    PlaytronProvider, ProviderItem, ReleaseState,
+    PlaytronImage, PlaytronProvider, ProviderItem, ReleaseState,
 };
 use crate::types::cloud_sync::CloudPath;
 use crate::types::results::ResultWithError;
 
 use super::catalog::CatalogCache;
 use super::client::FlatpakClient;
+
+const TARGET_ASPECT: f64 = 16.0 / 9.0;
+const ASPECT_TOLERANCE: f64 = 0.3;
+
+/// Select the best screenshot image from Flathub appstream data.
+/// Prefers the largest screenshot closest to 16:9 aspect ratio.
+/// Falls back to the largest screenshot overall if none are near 16:9.
+fn select_best_screenshot(screenshots: &Option<Vec<Screenshot>>) -> Vec<PlaytronImage> {
+    let screenshots = match screenshots {
+        Some(s) if !s.is_empty() => s,
+        _ => return Vec::new(),
+    };
+
+    let mut best_16_9: Option<(&str, &str, u32, f64)> = None; // (url, caption, area, aspect_diff)
+    let mut best_any: Option<(&str, &str, u32)> = None; // (url, caption, area)
+
+    for screenshot in screenshots {
+        let caption = screenshot.caption.as_deref().unwrap_or("");
+        for size in &screenshot.sizes {
+            let w: u32 = size.width.as_deref().and_then(|s| s.parse().ok()).unwrap_or(0);
+            let h: u32 = size.height.as_deref().and_then(|s| s.parse().ok()).unwrap_or(0);
+            if w == 0 || h == 0 {
+                continue;
+            }
+            let area = w * h;
+            let aspect = w as f64 / h as f64;
+            let aspect_diff = (aspect - TARGET_ASPECT).abs();
+
+            // Track best near-16:9 candidate (prefer larger area, then closer aspect)
+            if aspect_diff <= ASPECT_TOLERANCE {
+                let dominated = match best_16_9 {
+                    Some((_, _, prev_area, prev_diff)) => {
+                        area > prev_area || (area == prev_area && aspect_diff < prev_diff)
+                    }
+                    None => true,
+                };
+                if dominated {
+                    best_16_9 = Some((&size.src, caption, area, aspect_diff));
+                }
+            }
+
+            // Track largest overall as fallback
+            let is_larger = match best_any {
+                Some((_, _, prev_area)) => area > prev_area,
+                None => true,
+            };
+            if is_larger {
+                best_any = Some((&size.src, caption, area));
+            }
+        }
+    }
+
+    let (url, alt) = match best_16_9 {
+        Some((url, caption, _, _)) => (url, caption),
+        None => match best_any {
+            Some((url, caption, _)) => (url, caption),
+            None => return Vec::new(),
+        },
+    };
+
+    vec![PlaytronImage {
+        image_type: "landscape".to_string(),
+        url: url.to_string(),
+        alt: alt.to_string(),
+        source: LIBRARY_PROVIDER_ID.to_string(),
+    }]
+}
 
 pub struct InstallProgress {
     pub stage: DownloadStage,
@@ -171,7 +238,7 @@ impl FlatpakService {
             summary: appstream.summary.unwrap_or_default(),
             description: appstream.description.unwrap_or_default(),
             tags: Vec::new(),
-            images: Vec::new(),
+            images: select_best_screenshot(&appstream.screenshots),
             publishers: Vec::new(),
             developers: appstream
                 .developer_name
