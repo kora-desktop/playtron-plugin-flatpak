@@ -4,6 +4,9 @@ filters:
   verified_only: true
   games_only: true
   controller_support: true
+  # app_allowlist:          # When set, ONLY these apps appear in the catalog
+  #   - com.play0ad.zeroad
+  #   - org.luanti.luanti
   # Future filters (all individually toggleable):
   # foss_only: false
   # allow_game_launchers: false

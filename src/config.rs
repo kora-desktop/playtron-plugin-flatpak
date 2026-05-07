@@ -34,6 +34,8 @@ pub struct Filters {
     pub games_only: bool,
     #[serde(default = "default_true")]
     pub controller_support: bool,
+    #[serde(default)]
+    pub app_allowlist: Vec<String>,
 }
 
 fn default_true() -> bool {
@@ -46,6 +48,7 @@ impl Default for Filters {
             verified_only: true,
             games_only: true,
             controller_support: true,
+            app_allowlist: Vec::new(),
         }
     }
 }

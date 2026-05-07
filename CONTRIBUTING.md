@@ -7,7 +7,12 @@ Table of Contents:
 
 ## Adding a New Filter
 
-Filters restrict which Flathub apps appear in the catalog. Each filter is a boolean cached per app in `catalog_cache.json` and toggled in `config.yaml`. Adding a new filter touches five files:
+Filters restrict which Flathub apps appear in the catalog. Each filter is toggled in `config.yaml`. There are two kinds:
+
+- **Boolean filters** (e.g. `verified_only`, `games_only`) — backed by a cached `bool` per app in `CatalogEntry`. Adding one touches five files (see below).
+- **List filters** (e.g. `app_allowlist`) — a `Vec<String>` of app IDs in config. When empty, no filtering is applied. When populated, only listed apps pass through. These are purely serving-time filters with no cached data needed.
+
+Adding a new boolean filter touches five files:
 
 ### 1. Data source (`src/flathub/types.rs`)
 

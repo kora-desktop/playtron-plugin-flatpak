@@ -92,9 +92,14 @@ impl CatalogCache {
     pub fn to_provider_items(&self, filters: &Filters) -> Vec<ProviderItem> {
         self.items
             .iter()
-            .filter(|entry| !filters.verified_only || entry.verified)
-            .filter(|entry| !filters.games_only || entry.is_game)
-            .filter(|entry| !filters.controller_support || entry.has_controller_support)
+            .filter(|entry| {
+                if !filters.app_allowlist.is_empty() {
+                    return filters.app_allowlist.contains(&entry.app_id);
+                }
+                (!filters.verified_only || entry.verified)
+                    && (!filters.games_only || entry.is_game)
+                    && (!filters.controller_support || entry.has_controller_support)
+            })
             .map(|entry| ProviderItem {
                 id: entry.app_id.clone(),
                 name: entry.name.clone(),

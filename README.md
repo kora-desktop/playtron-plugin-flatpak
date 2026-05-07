@@ -62,6 +62,9 @@ filters:
   verified_only: true
   games_only: true
   controller_support: true
+  # app_allowlist:
+  #   - com.play0ad.zeroad
+  #   - org.luanti.luanti
 ```
 
 ## Filters
@@ -73,6 +76,7 @@ Filters control which apps from the Flathub catalog appear in the library. All f
 | `verified_only` | `true` | Only show apps verified by their developer on Flathub |
 | `games_only` | `true` | Only show apps categorized as games |
 | `controller_support` | `true` | Only show apps whose metadata mentions gamepad/controller support (heuristic) |
+| `app_allowlist` | `[]` (empty) | When set, only listed app IDs appear in the catalog |
 
 Installed Flatpak apps always appear in the library regardless of filter settings.
 

@@ -189,9 +189,11 @@ impl FlatpakService {
 
     pub async fn get_provider_items(&self) -> ResultWithError<Vec<ProviderItem>> {
         let installed = FlatpakClient::list_installed().await?;
+        let allowlist = &self.config.filters.app_allowlist;
 
         let mut items: Vec<ProviderItem> = installed
             .into_iter()
+            .filter(|flat| allowlist.is_empty() || allowlist.contains(&flat.app_id))
             .map(|flat| ProviderItem {
                 id: flat.app_id,
                 name: flat.name,

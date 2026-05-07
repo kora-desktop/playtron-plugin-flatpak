@@ -90,21 +90,25 @@ async fn test_to_provider_items_respects_filters() {
         verified_only: false,
         games_only: false,
         controller_support: false,
+        app_allowlist: Vec::new(),
     };
     let verified_only = Filters {
         verified_only: true,
         games_only: false,
         controller_support: false,
+        app_allowlist: Vec::new(),
     };
     let games_only = Filters {
         verified_only: false,
         games_only: true,
         controller_support: false,
+        app_allowlist: Vec::new(),
     };
     let both = Filters {
         verified_only: true,
         games_only: true,
         controller_support: false,
+        app_allowlist: Vec::new(),
     };
 
     let all_items = cache.to_provider_items(&no_filters);
@@ -116,6 +120,7 @@ async fn test_to_provider_items_respects_filters() {
         verified_only: false,
         games_only: false,
         controller_support: true,
+        app_allowlist: Vec::new(),
     };
     let controller_items = cache.to_provider_items(&controller_filter);
 
@@ -179,6 +184,52 @@ async fn test_to_provider_items_respects_filters() {
     assert!(
         !controller_items.iter().any(|i| i.id == "org.videolan.VLC"),
         "VLC should NOT appear in controller-support list"
+    );
+
+    let allowlist_filter = Filters {
+        verified_only: false,
+        games_only: false,
+        controller_support: false,
+        app_allowlist: vec![
+            "com.play0ad.zeroad".into(),
+            "org.videolan.VLC".into(),
+        ],
+    };
+    let allowlist_items = cache.to_provider_items(&allowlist_filter);
+    assert_eq!(
+        allowlist_items.len(),
+        2,
+        "Allowlist with 2 apps should return exactly 2 items, got {}",
+        allowlist_items.len()
+    );
+    assert!(
+        allowlist_items.iter().any(|i| i.id == "com.play0ad.zeroad"),
+        "0 A.D. should appear in allowlist"
+    );
+    assert!(
+        allowlist_items.iter().any(|i| i.id == "org.videolan.VLC"),
+        "VLC should appear in allowlist"
+    );
+
+    // Allowlist overrides boolean filters — VLC appears even with verified_only + games_only
+    let allowlist_override = Filters {
+        verified_only: true,
+        games_only: true,
+        controller_support: true,
+        app_allowlist: vec![
+            "org.videolan.VLC".into(),
+        ],
+    };
+    let override_items = cache.to_provider_items(&allowlist_override);
+    assert_eq!(
+        override_items.len(),
+        1,
+        "Allowlist should override boolean filters, got {}",
+        override_items.len()
+    );
+    assert!(
+        override_items.iter().any(|i| i.id == "org.videolan.VLC"),
+        "VLC should appear even with all boolean filters enabled"
     );
 }
 
