@@ -1,3 +1,5 @@
+cache_days: 30  # 0 to disable caching entirely
+
 filters:
   verified_only: true
   # Future filters (all individually toggleable):

@@ -12,3 +12,4 @@ pub const USER_CONFIG_SUBDIR: &str = "playtron/plugins/flatpak";
 pub const PLUGIN_DATA_SUBDIR: &str = "playtron/plugins/flatpak";
 pub const CONFIG_FILENAME: &str = "config.yaml";
 pub const CATALOG_CACHE_FILENAME: &str = "catalog_cache.json";
+pub const METADATA_CACHE_FILENAME: &str = "metadata_cache.json";

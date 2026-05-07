@@ -2,6 +2,7 @@ use log::{error, info, warn};
 use rsa::pkcs1::EncodeRsaPublicKey;
 use rsa::pkcs8::LineEnding;
 use rsa::{RsaPrivateKey, RsaPublicKey};
+use std::collections::HashMap;
 use tokio::sync::mpsc;
 use zbus::fdo;
 
@@ -16,7 +17,7 @@ use crate::types::app::{
 use crate::types::cloud_sync::CloudPath;
 use crate::types::results::ResultWithError;
 
-use super::catalog::CatalogCache;
+use super::catalog::{CatalogCache, MetadataCache};
 use super::client::FlatpakClient;
 
 const TARGET_ASPECT: f64 = 16.0 / 9.0;
@@ -98,6 +99,7 @@ pub struct FlatpakService {
     rsa: RsaPrivateKey,
     config: Config,
     catalog: Vec<ProviderItem>,
+    metadata: HashMap<String, String>,
 }
 
 #[allow(dead_code)]
@@ -107,7 +109,9 @@ impl FlatpakService {
         let mut rng = rand::thread_rng();
         let rsa = RsaPrivateKey::new(&mut rng, 2048).expect("failed to generate RSA key");
 
-        let catalog = match CatalogCache::load_or_fetch().await {
+        let cache_days = config.cache_days;
+
+        let catalog = match CatalogCache::load_or_fetch(cache_days).await {
             Ok(cache) => cache.to_provider_items(),
             Err(e) => {
                 warn!("Failed to load catalog: {}", e);
@@ -115,7 +119,10 @@ impl FlatpakService {
             }
         };
 
-        Self { rsa, config, catalog }
+        let app_ids: Vec<String> = catalog.iter().map(|item| item.id.clone()).collect();
+        let metadata = MetadataCache::load_or_fetch(&app_ids, cache_days).await;
+
+        Self { rsa, config, catalog, metadata }
     }
 
     pub fn get_public_key(&self) -> String {
@@ -221,6 +228,10 @@ impl FlatpakService {
     }
 
     pub async fn get_item_metadata(&self, app_id: &str) -> ResultWithError<String> {
+        if let Some(cached) = self.metadata.get(app_id) {
+            return Ok(cached.clone());
+        }
+
         let client = FlathubClient::new();
         let appstream = client.get_appstream(app_id).await?;
 

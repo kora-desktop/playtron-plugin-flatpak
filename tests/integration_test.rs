@@ -1,3 +1,4 @@
+use playtron_plugin_flatpak::flatpak::catalog::CatalogCache;
 use playtron_plugin_flatpak::flatpak::client::FlatpakClient;
 use playtron_plugin_flatpak::flatpak::service::select_best_screenshot;
 use playtron_plugin_flatpak::flathub::api::FlathubClient;
@@ -32,6 +33,22 @@ async fn test_verified_collection_pagination() {
     let page2 = client.get_verified_collection(2, 25).await.unwrap();
     assert!(!page2.hits.is_empty());
     assert_ne!(page1.hits[0].app_id, page2.hits[0].app_id);
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_fetch_all_verified_includes_0ad() {
+    let cache = CatalogCache::fetch_fresh().await.unwrap();
+    eprintln!("Total verified apps fetched: {}", cache.items.len());
+    assert!(
+        cache.items.len() > 1000,
+        "Should fetch more than 1000 apps (Meilisearch cap), got {}",
+        cache.items.len()
+    );
+    assert!(
+        cache.items.iter().any(|e| e.app_id == "com.play0ad.zeroad"),
+        "0 A.D. (com.play0ad.zeroad) should be in the catalog"
+    );
 }
 
 #[tokio::test]

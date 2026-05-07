@@ -5,10 +5,25 @@ use std::path::PathBuf;
 
 use crate::constants;
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
     #[serde(default)]
     pub filters: Filters,
+    #[serde(default = "default_cache_days")]
+    pub cache_days: u64,
+}
+
+fn default_cache_days() -> u64 {
+    30
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            filters: Filters::default(),
+            cache_days: default_cache_days(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

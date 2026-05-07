@@ -7,6 +7,7 @@ use crate::types::results::ResultWithError;
 
 use super::types::{AppstreamInfo, CollectionResponse, SearchHit, SearchRequest, SearchResponse, VerificationStatus};
 
+#[derive(Clone)]
 pub struct FlathubClient {
     client: Client,
     base_url: String,
@@ -64,6 +65,15 @@ impl FlathubClient {
         let response = self.client.get(&url).send().await?;
         let status: VerificationStatus = response.json().await?;
         Ok(status)
+    }
+
+    pub async fn get_all_app_ids(&self) -> ResultWithError<Vec<String>> {
+        let url = format!("{}/appstream", self.base_url);
+        debug!("Fetching all app IDs");
+
+        let response = self.client.get(&url).send().await?;
+        let ids: Vec<String> = response.json().await?;
+        Ok(ids)
     }
 
     pub async fn get_verified_collection(&self, page: u32, per_page: u32) -> ResultWithError<CollectionResponse> {
