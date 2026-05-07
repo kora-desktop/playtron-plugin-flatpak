@@ -1,24 +1,25 @@
-# Local Games Plugin for Playtron GameOS
+# Flatpak Plugin for Playtron GameOS
 
 Table of Contents:
 - [Introduction](#introduction)
 - [Build](#build)
 - [Installation](#installation)
-- [Setting up rsync on Windows](#setting-up-rsync-on-windows)
-- [Loading Games](#loading-games)
-- [Updating Games](#updating-games)
+- [Configuration](#configuration)
+- [Filters](#filters)
+- [Caching](#caching)
 
 ## Introduction
 
-This plugin allows sideloading games to your [Playtron GameOS](https://github.com/playtron-os/gameos) device that are not 
-available on supported stores (development builds, DRM-free games, shareware, launchers, etc.)
+This plugin provides [Flathub](https://flathub.org/) catalog integration for [Playtron GameOS](https://github.com/playtron-os/gameos).
+It registers as a D-Bus plugin (`one.playtron.plugin.flatpak`) with playserve and exposes the Flathub catalog as a browsable library,
+with support for searching, installing, and uninstalling Flatpak applications.
 
 ## Build
 
 Building is optional and recommended for plugin developers only.
 
 A basic build can be done with `cargo build`. Copy the plugin to your device:
-`scp target/debug/playtron-plugin-local playtron@$DEVICE_IP:~/.local/share/playtron/plugins/local/`
+`scp target/debug/playtron-plugin-flatpak playtron@$DEVICE_IP:~/.local/share/playtron/plugins/flatpak/`
 
 Fully automated binary tarball and RPM builds are supported with the use of a container. Both x86_64 and aarch64 CPU architectures are supported. These commands will output packages to the `dist` directory.
 
@@ -31,99 +32,64 @@ make in-docker TARGET='dist' ARCH="aarch64"
 
 ## Installation
 
-SSH into your device and create the folder for the installed games.
+Install the plugin system-wide:
 
 ```shell
-# You can find the device's IP in the Wi-Fi settings of your device
-export DEVICE_IP=192.168.x.x
-ssh playtron@$DEVICE_IP
-```
-```shell
-mkdir -p ~/.local/share/playtron/apps/local
+sudo make install
 ```
 
+This installs the binary to `/usr/bin/playtron-plugin-flatpak` and the default configuration to `/usr/share/playtron/plugins/flatpak/`.
 
-## Setting up rsync on Windows
-
-Rsync will allow you to copy a game folder to your device and make incremental updates.
-To get Rsync on Windows, download the Cygwin installer from their website: https://cygwin.com/
-Once in the Cygwin installer, make sure to select `rsync` and `OpenSSH` in the package selection.
-
-You can now launch a bash console which will give you access to rsync.
-
-## Loading Games
-
-On the machine you want to load the game from, locate your game folder 
-and create a file named `gameinfo.yaml`. Populate this file with the following information:
-
-```yaml
-name: The game's name
-executable: game_executable.exe
-```
-
-Example:
-
-```yaml
-name: "Street Fighter X Tekken"
-executable: "SFTK.exe"
-```
-
-Windows executable (EXE) and batch (BAT) files are both supported.
-
-In the case of a Linux game, also add `os: linux` and prefix the executable with `./`
-
-Example:
-```yaml
-name: Minecraft (Official)
-executable: ./minecraft-launcher
-os: linux
-```
-
-By default Linux executables are launched in the Sniper container. To ensure the best compatibility,
-prefer games built against the Sniper SDK. Read more here: https://gitlab.steamos.cloud/steamrt/sniper/sdk
-
-If the runtime container causes issues, you can launch the executable without it, in the context of the OS.
-To do so, add to your gameinfo.yaml file:
-```yaml
-runtime: false
-```
-
-Flatpaks are also supported by using a simple launch script. Use `chmod +x flatpak-launcher.sh` to make the script executable.
-
-Example:
-```shell
-#!/bin/bash
-
-/usr/bin/flatpak run org.prismlauncher.PrismLauncher
-```
-```yaml
-name: Minecraft (Prism Launcher)
-executable: ./flatpak-launcher.sh
-os: linux
-runtime: false # Flatpak and other system binaries should run without the runtime
-```
-
-Optionally, add an image to your game for the Playtron GameOS library. The image should be as close as possible to a 16:9 ratio and be in the highest quality possible (1080p or 1440p recommended)
-
-```yaml
-image: https://url/of/the/game/artwork.jpg
-```
-
-Copy the game folder to your Playtron GameOS device:
-```shell
-# Run the command from the parent folder relative to your game
-cd Games
-# Make sure there is no trailing slash after `my-game` 
-rsync -avz my-game playtron@DEVICE_IP:~/.local/share/playtron/apps/local/
-```
-
-Restart the `playserve` service or reboot to see your newly added game.
+Restart the `playserve` service to load the plugin:
 
 ```shell
 systemctl --user restart playserve
 ```
 
-## Updating Games
+## Configuration
 
-To update a game that has already been loaded on the device, simply run the rsync command again.
-It might be necessary to add the `--delete` flag to rsync if some game files have been removed.
+The plugin reads configuration from two paths (first match wins):
+
+1. **User config:** `~/.local/share/playtron/plugins/flatpak/config.yaml`
+2. **System config:** `/usr/share/playtron/plugins/flatpak/config.yaml`
+
+If neither exists, built-in defaults are used.
+
+```yaml
+cache_days: 30  # 0 to disable caching entirely
+
+filters:
+  verified_only: true
+  games_only: true
+  controller_support: true
+```
+
+## Filters
+
+Filters control which apps from the Flathub catalog appear in the library. All filter data is cached locally so changing filters takes effect immediately without re-fetching.
+
+| Filter | Default | Description |
+|---|---|---|
+| `verified_only` | `true` | Only show apps verified by their developer on Flathub |
+| `games_only` | `true` | Only show apps categorized as games |
+| `controller_support` | `true` | Only show apps whose metadata mentions gamepad/controller support (heuristic) |
+
+Installed Flatpak apps always appear in the library regardless of filter settings.
+
+## Caching
+
+The plugin caches Flathub data locally to avoid long startup times:
+
+| File | Contents |
+|---|---|
+| `catalog_cache.json` | All Flathub app IDs with name, verified status, game classification, and controller support |
+| `metadata_cache.json` | Full item metadata (description, screenshots, developers) for all apps |
+
+Cache files are stored in `~/.local/share/playtron/plugins/flatpak/` and expire after `cache_days` days (default 30). Set `cache_days: 0` to disable caching entirely.
+
+To force a cache refresh, delete the cache files and restart:
+
+```shell
+rm ~/.local/share/playtron/plugins/flatpak/*_cache.json
+systemctl --user restart playserve
+```
