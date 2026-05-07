@@ -30,6 +30,8 @@ impl Default for Config {
 pub struct Filters {
     #[serde(default = "default_true")]
     pub verified_only: bool,
+    #[serde(default = "default_true")]
+    pub games_only: bool,
 }
 
 fn default_true() -> bool {
@@ -40,6 +42,7 @@ impl Default for Filters {
     fn default() -> Self {
         Self {
             verified_only: true,
+            games_only: true,
         }
     }
 }

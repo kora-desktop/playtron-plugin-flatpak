@@ -27,6 +27,8 @@ pub struct SearchHit {
     pub project_license: Option<String>,
     pub is_free_license: Option<bool>,
     pub runtime: Option<String>,
+    #[serde(default)]
+    pub main_categories: serde_json::Value,
 }
 
 #[allow(dead_code)]

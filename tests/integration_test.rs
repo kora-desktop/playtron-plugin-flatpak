@@ -52,36 +52,72 @@ async fn test_fetch_all_apps_includes_verified_and_unverified() {
         .iter()
         .find(|e| e.app_id == "com.play0ad.zeroad");
     assert!(zero_ad.is_some(), "0 A.D. should be in the catalog");
-    assert!(
-        zero_ad.unwrap().verified,
-        "0 A.D. should be marked verified"
-    );
+    let zero_ad = zero_ad.unwrap();
+    assert!(zero_ad.verified, "0 A.D. should be marked verified");
+    assert!(zero_ad.is_game, "0 A.D. should be marked as a game");
 
     let vlc = cache
         .items
         .iter()
         .find(|e| e.app_id == "org.videolan.VLC");
     assert!(vlc.is_some(), "VLC should be in the catalog");
-    assert!(!vlc.unwrap().verified, "VLC should be marked unverified");
+    let vlc = vlc.unwrap();
+    assert!(!vlc.verified, "VLC should be marked unverified");
+    assert!(!vlc.is_game, "VLC should NOT be marked as a game");
 }
 
 #[tokio::test]
 #[ignore]
-async fn test_to_provider_items_respects_verified_filter() {
+async fn test_to_provider_items_respects_filters() {
     let cache = CatalogCache::fetch_fresh().await.unwrap();
 
-    let all_items = cache.to_provider_items(&Filters {
+    let no_filters = Filters {
         verified_only: false,
-    });
-    let verified_items = cache.to_provider_items(&Filters {
+        games_only: false,
+    };
+    let verified_only = Filters {
         verified_only: true,
-    });
+        games_only: false,
+    };
+    let games_only = Filters {
+        verified_only: false,
+        games_only: true,
+    };
+    let both = Filters {
+        verified_only: true,
+        games_only: true,
+    };
+
+    let all_items = cache.to_provider_items(&no_filters);
+    let verified_items = cache.to_provider_items(&verified_only);
+    let game_items = cache.to_provider_items(&games_only);
+    let both_items = cache.to_provider_items(&both);
+
+    eprintln!(
+        "All: {}, Verified: {}, Games: {}, Both: {}",
+        all_items.len(),
+        verified_items.len(),
+        game_items.len(),
+        both_items.len()
+    );
 
     assert!(
         all_items.len() > verified_items.len(),
         "Unfiltered ({}) should be more than verified-only ({})",
         all_items.len(),
         verified_items.len()
+    );
+    assert!(
+        all_items.len() > game_items.len(),
+        "Unfiltered ({}) should be more than games-only ({})",
+        all_items.len(),
+        game_items.len()
+    );
+    assert!(
+        both_items.len() <= game_items.len(),
+        "Both filters ({}) should be <= games-only ({})",
+        both_items.len(),
+        game_items.len()
     );
 
     assert!(
@@ -91,6 +127,14 @@ async fn test_to_provider_items_respects_verified_filter() {
     assert!(
         !verified_items.iter().any(|i| i.id == "org.videolan.VLC"),
         "VLC should NOT appear in verified-only list"
+    );
+    assert!(
+        !game_items.iter().any(|i| i.id == "org.videolan.VLC"),
+        "VLC should NOT appear in games-only list"
+    );
+    assert!(
+        game_items.iter().any(|i| i.id == "com.play0ad.zeroad"),
+        "0 A.D. should appear in games-only list"
     );
 }
 

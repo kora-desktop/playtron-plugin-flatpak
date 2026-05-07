@@ -23,6 +23,10 @@ fn cache_max_age_secs(cache_days: u64) -> u64 {
     cache_days * 24 * 60 * 60
 }
 
+fn is_game_category(categories: &[String]) -> bool {
+    categories.iter().any(|c| c.contains("Game"))
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct CatalogCache {
     pub items: Vec<CatalogEntry>,
@@ -34,6 +38,7 @@ pub struct CatalogEntry {
     pub app_id: String,
     pub name: String,
     pub verified: bool,
+    pub is_game: bool,
 }
 
 impl CatalogCache {
@@ -75,6 +80,7 @@ impl CatalogCache {
         self.items
             .iter()
             .filter(|entry| !filters.verified_only || entry.verified)
+            .filter(|entry| !filters.games_only || entry.is_game)
             .map(|entry| ProviderItem {
                 id: entry.app_id.clone(),
                 name: entry.name.clone(),
@@ -103,10 +109,18 @@ impl CatalogCache {
         let mut entries: Vec<CatalogEntry> = collection
             .hits
             .into_iter()
-            .map(|hit| CatalogEntry {
-                app_id: hit.app_id,
-                name: hit.name.unwrap_or_default(),
-                verified: true,
+            .map(|hit| {
+                let is_game = hit
+                    .main_categories
+                    .as_str()
+                    .map(|c| c.eq_ignore_ascii_case("game"))
+                    .unwrap_or(false);
+                CatalogEntry {
+                    app_id: hit.app_id,
+                    name: hit.name.unwrap_or_default(),
+                    verified: true,
+                    is_game,
+                }
             })
             .collect();
         info!("Fetched {} verified apps from collection", entries.len());
@@ -137,16 +151,20 @@ impl CatalogCache {
                     .ok()
                     .map(|s| s.verified)
                     .unwrap_or(false);
-                let name = client
-                    .get_appstream(&app_id)
-                    .await
-                    .ok()
-                    .and_then(|info| info.name)
+                let appstream = client.get_appstream(&app_id).await.ok();
+                let name = appstream
+                    .as_ref()
+                    .and_then(|info| info.name.clone())
                     .unwrap_or_default();
+                let is_game = appstream
+                    .as_ref()
+                    .map(|info| is_game_category(&info.categories))
+                    .unwrap_or(false);
                 Some(CatalogEntry {
                     app_id,
                     name,
                     verified,
+                    is_game,
                 })
             }));
         }
