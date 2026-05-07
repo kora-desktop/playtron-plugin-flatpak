@@ -9,7 +9,5 @@ filters:
   #   - org.luanti.luanti
   # Future filters (all individually toggleable):
   # foss_only: false
-  # allow_game_launchers: false
-  # min_resolution: "1280x720"
   # touchscreen_support: true
   # allow_emulators: false

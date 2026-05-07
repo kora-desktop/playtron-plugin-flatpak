@@ -60,9 +60,7 @@ filters:
   # Future filters (all individually toggleable):
   # foss_only: false
   # games_only: true
-  # allow_game_launchers: false
   # controller_support: true
-  # min_resolution: "1280x720"
   # touchscreen_support: true
   # allow_emulators: false
 ```
