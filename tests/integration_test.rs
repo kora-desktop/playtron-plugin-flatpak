@@ -1,3 +1,4 @@
+use playtron_plugin_flatpak::config::Filters;
 use playtron_plugin_flatpak::flatpak::catalog::CatalogCache;
 use playtron_plugin_flatpak::flatpak::client::FlatpakClient;
 use playtron_plugin_flatpak::flatpak::service::select_best_screenshot;
@@ -37,17 +38,59 @@ async fn test_verified_collection_pagination() {
 
 #[tokio::test]
 #[ignore]
-async fn test_fetch_all_verified_includes_0ad() {
+async fn test_fetch_all_apps_includes_verified_and_unverified() {
     let cache = CatalogCache::fetch_fresh().await.unwrap();
-    eprintln!("Total verified apps fetched: {}", cache.items.len());
+    eprintln!("Total apps fetched: {}", cache.items.len());
     assert!(
-        cache.items.len() > 1000,
-        "Should fetch more than 1000 apps (Meilisearch cap), got {}",
+        cache.items.len() > 2500,
+        "Should fetch all Flathub apps, got {}",
         cache.items.len()
     );
+
+    let zero_ad = cache
+        .items
+        .iter()
+        .find(|e| e.app_id == "com.play0ad.zeroad");
+    assert!(zero_ad.is_some(), "0 A.D. should be in the catalog");
     assert!(
-        cache.items.iter().any(|e| e.app_id == "com.play0ad.zeroad"),
-        "0 A.D. (com.play0ad.zeroad) should be in the catalog"
+        zero_ad.unwrap().verified,
+        "0 A.D. should be marked verified"
+    );
+
+    let vlc = cache
+        .items
+        .iter()
+        .find(|e| e.app_id == "org.videolan.VLC");
+    assert!(vlc.is_some(), "VLC should be in the catalog");
+    assert!(!vlc.unwrap().verified, "VLC should be marked unverified");
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_to_provider_items_respects_verified_filter() {
+    let cache = CatalogCache::fetch_fresh().await.unwrap();
+
+    let all_items = cache.to_provider_items(&Filters {
+        verified_only: false,
+    });
+    let verified_items = cache.to_provider_items(&Filters {
+        verified_only: true,
+    });
+
+    assert!(
+        all_items.len() > verified_items.len(),
+        "Unfiltered ({}) should be more than verified-only ({})",
+        all_items.len(),
+        verified_items.len()
+    );
+
+    assert!(
+        all_items.iter().any(|i| i.id == "org.videolan.VLC"),
+        "VLC should appear in unfiltered list"
+    );
+    assert!(
+        !verified_items.iter().any(|i| i.id == "org.videolan.VLC"),
+        "VLC should NOT appear in verified-only list"
     );
 }
 

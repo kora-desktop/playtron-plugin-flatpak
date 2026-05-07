@@ -98,7 +98,7 @@ pub struct InstallProgress {
 pub struct FlatpakService {
     rsa: RsaPrivateKey,
     config: Config,
-    catalog: Vec<ProviderItem>,
+    catalog_cache: CatalogCache,
     metadata: HashMap<String, String>,
 }
 
@@ -111,18 +111,26 @@ impl FlatpakService {
 
         let cache_days = config.cache_days;
 
-        let catalog = match CatalogCache::load_or_fetch(cache_days).await {
-            Ok(cache) => cache.to_provider_items(),
+        let catalog_cache = match CatalogCache::load_or_fetch(cache_days).await {
+            Ok(cache) => cache,
             Err(e) => {
                 warn!("Failed to load catalog: {}", e);
-                Vec::new()
+                CatalogCache {
+                    items: Vec::new(),
+                    fetched_at: 0,
+                }
             }
         };
 
-        let app_ids: Vec<String> = catalog.iter().map(|item| item.id.clone()).collect();
+        let app_ids: Vec<String> = catalog_cache.items.iter().map(|e| e.app_id.clone()).collect();
         let metadata = MetadataCache::load_or_fetch(&app_ids, cache_days).await;
 
-        Self { rsa, config, catalog, metadata }
+        Self {
+            rsa,
+            config,
+            catalog_cache,
+            metadata,
+        }
     }
 
     pub fn get_public_key(&self) -> String {
@@ -197,9 +205,10 @@ impl FlatpakService {
         let installed_ids: std::collections::HashSet<String> =
             items.iter().map(|i| i.id.clone()).collect();
 
-        for catalog_item in &self.catalog {
+        let catalog_items = self.catalog_cache.to_provider_items(&self.config.filters);
+        for catalog_item in catalog_items {
             if !installed_ids.contains(&catalog_item.id) {
-                items.push(catalog_item.clone());
+                items.push(catalog_item);
             }
         }
 
@@ -220,10 +229,10 @@ impl FlatpakService {
             });
         }
 
-        self.catalog
-            .iter()
+        let catalog_items = self.catalog_cache.to_provider_items(&self.config.filters);
+        catalog_items
+            .into_iter()
             .find(|item| item.id == app_id)
-            .cloned()
             .ok_or_else(|| format!("App {} not found", app_id).into())
     }
 
@@ -444,7 +453,7 @@ impl FlatpakService {
     pub async fn refresh_catalog(&mut self) -> ResultWithError<()> {
         info!("Refreshing catalog from Flathub");
         let cache = CatalogCache::fetch_fresh().await?;
-        self.catalog = cache.to_provider_items();
+        self.catalog_cache = cache;
         Ok(())
     }
 

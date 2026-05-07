@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::config::Filters;
 use crate::constants::{
     CATALOG_CACHE_FILENAME, LIBRARY_PROVIDER_ID, METADATA_CACHE_FILENAME, PLUGIN_DATA_SUBDIR,
 };
@@ -22,7 +23,7 @@ fn cache_max_age_secs(cache_days: u64) -> u64 {
     cache_days * 24 * 60 * 60
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct CatalogCache {
     pub items: Vec<CatalogEntry>,
     pub fetched_at: u64,
@@ -32,6 +33,7 @@ pub struct CatalogCache {
 pub struct CatalogEntry {
     pub app_id: String,
     pub name: String,
+    pub verified: bool,
 }
 
 impl CatalogCache {
@@ -58,20 +60,21 @@ impl CatalogCache {
 
     pub async fn fetch_fresh() -> ResultWithError<Self> {
         let client = FlathubClient::new();
-        let items = Self::fetch_all_verified(&client).await?;
+        let items = Self::fetch_all_apps(&client).await?;
         let fetched_at = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
 
-        info!("Fetched {} verified apps from Flathub", items.len());
+        info!("Fetched {} total apps from Flathub", items.len());
 
         Ok(Self { items, fetched_at })
     }
 
-    pub fn to_provider_items(&self) -> Vec<ProviderItem> {
+    pub fn to_provider_items(&self, filters: &Filters) -> Vec<ProviderItem> {
         self.items
             .iter()
+            .filter(|entry| !filters.verified_only || entry.verified)
             .map(|entry| ProviderItem {
                 id: entry.app_id.clone(),
                 name: entry.name.clone(),
@@ -95,7 +98,7 @@ impl CatalogCache {
         dirs::data_dir().map(|d| d.join(PLUGIN_DATA_SUBDIR).join(CATALOG_CACHE_FILENAME))
     }
 
-    async fn fetch_all_verified(client: &FlathubClient) -> ResultWithError<Vec<CatalogEntry>> {
+    async fn fetch_all_apps(client: &FlathubClient) -> ResultWithError<Vec<CatalogEntry>> {
         let collection = client.get_verified_collection(1, 1000).await?;
         let mut entries: Vec<CatalogEntry> = collection
             .hits
@@ -103,6 +106,7 @@ impl CatalogCache {
             .map(|hit| CatalogEntry {
                 app_id: hit.app_id,
                 name: hit.name.unwrap_or_default(),
+                verified: true,
             })
             .collect();
         info!("Fetched {} verified apps from collection", entries.len());
@@ -115,7 +119,7 @@ impl CatalogCache {
             .filter(|id| !known_ids.contains(id))
             .collect();
         info!(
-            "Checking {} additional apps for verification",
+            "Fetching name and verification status for {} additional apps",
             remaining.len()
         );
 
@@ -127,17 +131,23 @@ impl CatalogCache {
             let sem = semaphore.clone();
             handles.push(tokio::spawn(async move {
                 let _permit = sem.acquire().await.ok()?;
-                let status = client.get_verification_status(&app_id).await.ok()?;
-                if !status.verified {
-                    return None;
-                }
+                let verified = client
+                    .get_verification_status(&app_id)
+                    .await
+                    .ok()
+                    .map(|s| s.verified)
+                    .unwrap_or(false);
                 let name = client
                     .get_appstream(&app_id)
                     .await
                     .ok()
                     .and_then(|info| info.name)
                     .unwrap_or_default();
-                Some(CatalogEntry { app_id, name })
+                Some(CatalogEntry {
+                    app_id,
+                    name,
+                    verified,
+                })
             }));
         }
 
