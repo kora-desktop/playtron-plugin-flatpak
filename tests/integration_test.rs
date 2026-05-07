@@ -1,7 +1,25 @@
 use playtron_plugin_flatpak::flatpak::client::FlatpakClient;
+use playtron_plugin_flatpak::flatpak::service::select_best_screenshot;
 use playtron_plugin_flatpak::flathub::api::FlathubClient;
 
 const TEST_APP: &str = "org.gnome.Calculator";
+
+#[tokio::test]
+#[ignore]
+async fn test_appstream_screenshot_selects_image() {
+    let client = FlathubClient::new();
+    let appstream = client.get_appstream(TEST_APP).await.unwrap();
+    let images = select_best_screenshot(&appstream.screenshots);
+    assert_eq!(images.len(), 1, "Should select exactly one image");
+    let img = &images[0];
+    assert_eq!(img.image_type, "landscape");
+    assert_eq!(img.source, "flatpak");
+    assert!(
+        img.url.starts_with("https://dl.flathub.org/"),
+        "Image URL should be from Flathub CDN, got: {}",
+        img.url
+    );
+}
 
 #[tokio::test]
 #[ignore]

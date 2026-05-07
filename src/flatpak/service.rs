@@ -25,7 +25,7 @@ const ASPECT_TOLERANCE: f64 = 0.3;
 /// Select the best screenshot image from Flathub appstream data.
 /// Prefers the largest screenshot closest to 16:9 aspect ratio.
 /// Falls back to the largest screenshot overall if none are near 16:9.
-fn select_best_screenshot(screenshots: &Option<Vec<Screenshot>>) -> Vec<PlaytronImage> {
+pub fn select_best_screenshot(screenshots: &Option<Vec<Screenshot>>) -> Vec<PlaytronImage> {
     let screenshots = match screenshots {
         Some(s) if !s.is_empty() => s,
         _ => return Vec::new(),
