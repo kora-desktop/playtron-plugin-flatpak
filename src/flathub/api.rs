@@ -66,11 +66,15 @@ impl FlathubClient {
         Ok(status)
     }
 
-    pub async fn get_verified_collection(&self) -> ResultWithError<CollectionResponse> {
+    pub async fn get_verified_collection(&self, page: u32, per_page: u32) -> ResultWithError<CollectionResponse> {
         let url = format!("{}/collection/verified", self.base_url);
-        debug!("Fetching verified collection");
+        debug!("Fetching verified collection page={} per_page={}", page, per_page);
 
-        let response = self.client.get(&url).send().await?;
+        let response = self.client
+            .get(&url)
+            .query(&[("page", page.to_string()), ("per_page", per_page.to_string())])
+            .send()
+            .await?;
         let collection: CollectionResponse = response.json().await?;
         Ok(collection)
     }

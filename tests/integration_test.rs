@@ -5,6 +5,19 @@ const TEST_APP: &str = "org.gnome.Calculator";
 
 #[tokio::test]
 #[ignore]
+async fn test_verified_collection_pagination() {
+    let client = FlathubClient::new();
+    let page1 = client.get_verified_collection(1, 25).await.unwrap();
+    assert!(!page1.hits.is_empty());
+    assert!(page1.total_pages.unwrap_or(0) > 1);
+
+    let page2 = client.get_verified_collection(2, 25).await.unwrap();
+    assert!(!page2.hits.is_empty());
+    assert_ne!(page1.hits[0].app_id, page2.hits[0].app_id);
+}
+
+#[tokio::test]
+#[ignore]
 async fn test_search_flathub() {
     let client = FlathubClient::new();
     let results = client.search("calculator").await.unwrap();

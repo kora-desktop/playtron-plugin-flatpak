@@ -81,18 +81,30 @@ impl CatalogCache {
     }
 
     async fn fetch_all_verified(client: &FlathubClient) -> ResultWithError<Vec<CatalogEntry>> {
-        let response = client.get_verified_collection().await?;
+        const PER_PAGE: u32 = 250;
+        const MAX_PAGES: u32 = 100;
 
-        let entries: Vec<CatalogEntry> = response
-            .hits
-            .into_iter()
-            .map(|hit| CatalogEntry {
+        let mut all_entries = Vec::new();
+        let mut page: u32 = 1;
+
+        loop {
+            let response = client.get_verified_collection(page, PER_PAGE).await?;
+
+            let is_empty = response.hits.is_empty();
+            all_entries.extend(response.hits.into_iter().map(|hit| CatalogEntry {
                 app_id: hit.app_id,
                 name: hit.name.unwrap_or_default(),
-            })
-            .collect();
+            }));
 
-        Ok(entries)
+            let total_pages = response.total_pages.unwrap_or(1);
+            if page >= total_pages || is_empty || page >= MAX_PAGES {
+                break;
+            }
+
+            page += 1;
+        }
+
+        Ok(all_entries)
     }
 
     fn save_to_disk(&self) {
