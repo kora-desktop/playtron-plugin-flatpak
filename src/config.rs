@@ -32,6 +32,8 @@ pub struct Filters {
     pub verified_only: bool,
     #[serde(default = "default_true")]
     pub games_only: bool,
+    #[serde(default = "default_true")]
+    pub controller_support: bool,
 }
 
 fn default_true() -> bool {
@@ -43,6 +45,7 @@ impl Default for Filters {
         Self {
             verified_only: true,
             games_only: true,
+            controller_support: true,
         }
     }
 }

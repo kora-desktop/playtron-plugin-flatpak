@@ -27,6 +27,18 @@ fn is_game_category(categories: &[String]) -> bool {
     categories.iter().any(|c| c.contains("Game"))
 }
 
+const CONTROLLER_TERMS: &[&str] = &["gamepad", "controller", "joystick", "joypad"];
+
+fn has_controller_keywords(keywords: &Option<Vec<String>>, description: &str) -> bool {
+    let desc_lower = description.to_lowercase();
+    let empty = Vec::new();
+    let kw = keywords.as_ref().unwrap_or(&empty);
+    CONTROLLER_TERMS.iter().any(|term| {
+        kw.iter().any(|k| k.to_lowercase().contains(term))
+            || desc_lower.contains(term)
+    })
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct CatalogCache {
     pub items: Vec<CatalogEntry>,
@@ -39,6 +51,7 @@ pub struct CatalogEntry {
     pub name: String,
     pub verified: bool,
     pub is_game: bool,
+    pub has_controller_support: bool,
 }
 
 impl CatalogCache {
@@ -81,6 +94,7 @@ impl CatalogCache {
             .iter()
             .filter(|entry| !filters.verified_only || entry.verified)
             .filter(|entry| !filters.games_only || entry.is_game)
+            .filter(|entry| !filters.controller_support || entry.has_controller_support)
             .map(|entry| ProviderItem {
                 id: entry.app_id.clone(),
                 name: entry.name.clone(),
@@ -120,10 +134,43 @@ impl CatalogCache {
                     name: hit.name.unwrap_or_default(),
                     verified: true,
                     is_game,
+                    has_controller_support: false,
                 }
             })
             .collect();
         info!("Fetched {} verified apps from collection", entries.len());
+
+        // Enrich collection entries with controller support from appstream
+        let semaphore = Arc::new(Semaphore::new(50));
+        let mut controller_handles = Vec::new();
+
+        for entry in &entries {
+            let client = client.clone();
+            let sem = semaphore.clone();
+            let app_id = entry.app_id.clone();
+            controller_handles.push(tokio::spawn(async move {
+                let _permit = sem.acquire().await.ok()?;
+                let appstream = client.get_appstream(&app_id).await.ok()?;
+                let has_support = has_controller_keywords(
+                    &appstream.keywords,
+                    appstream.description.as_deref().unwrap_or(""),
+                );
+                Some((app_id, has_support))
+            }));
+        }
+
+        let mut controller_map: HashMap<String, bool> = HashMap::new();
+        for handle in controller_handles {
+            if let Ok(Some((app_id, has_support))) = handle.await {
+                controller_map.insert(app_id, has_support);
+            }
+        }
+
+        for entry in &mut entries {
+            if let Some(&has_support) = controller_map.get(&entry.app_id) {
+                entry.has_controller_support = has_support;
+            }
+        }
 
         let known_ids: HashSet<String> = entries.iter().map(|e| e.app_id.clone()).collect();
 
@@ -160,11 +207,21 @@ impl CatalogCache {
                     .as_ref()
                     .map(|info| is_game_category(&info.categories))
                     .unwrap_or(false);
+                let has_controller_support = appstream
+                    .as_ref()
+                    .map(|info| {
+                        has_controller_keywords(
+                            &info.keywords,
+                            info.description.as_deref().unwrap_or(""),
+                        )
+                    })
+                    .unwrap_or(false);
                 Some(CatalogEntry {
                     app_id,
                     name,
                     verified,
                     is_game,
+                    has_controller_support,
                 })
             }));
         }

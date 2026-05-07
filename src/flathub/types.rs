@@ -43,6 +43,8 @@ pub struct AppstreamInfo {
     pub project_license: Option<String>,
     #[serde(default)]
     pub categories: Vec<String>,
+    #[serde(default)]
+    pub keywords: Option<Vec<String>>,
     pub screenshots: Option<Vec<Screenshot>>,
     #[serde(default)]
     pub releases: Vec<Release>,

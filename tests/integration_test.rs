@@ -64,6 +64,21 @@ async fn test_fetch_all_apps_includes_verified_and_unverified() {
     let vlc = vlc.unwrap();
     assert!(!vlc.verified, "VLC should be marked unverified");
     assert!(!vlc.is_game, "VLC should NOT be marked as a game");
+    assert!(
+        !vlc.has_controller_support,
+        "VLC should NOT have controller support"
+    );
+
+    let dolphin = cache
+        .items
+        .iter()
+        .find(|e| e.app_id == "org.DolphinEmu.dolphin-emu");
+    assert!(dolphin.is_some(), "Dolphin should be in the catalog");
+    let dolphin = dolphin.unwrap();
+    assert!(
+        dolphin.has_controller_support,
+        "Dolphin should have controller support (description mentions controllers)"
+    );
 }
 
 #[tokio::test]
@@ -74,18 +89,22 @@ async fn test_to_provider_items_respects_filters() {
     let no_filters = Filters {
         verified_only: false,
         games_only: false,
+        controller_support: false,
     };
     let verified_only = Filters {
         verified_only: true,
         games_only: false,
+        controller_support: false,
     };
     let games_only = Filters {
         verified_only: false,
         games_only: true,
+        controller_support: false,
     };
     let both = Filters {
         verified_only: true,
         games_only: true,
+        controller_support: false,
     };
 
     let all_items = cache.to_provider_items(&no_filters);
@@ -93,12 +112,20 @@ async fn test_to_provider_items_respects_filters() {
     let game_items = cache.to_provider_items(&games_only);
     let both_items = cache.to_provider_items(&both);
 
+    let controller_filter = Filters {
+        verified_only: false,
+        games_only: false,
+        controller_support: true,
+    };
+    let controller_items = cache.to_provider_items(&controller_filter);
+
     eprintln!(
-        "All: {}, Verified: {}, Games: {}, Both: {}",
+        "All: {}, Verified: {}, Games: {}, Both: {}, Controller: {}",
         all_items.len(),
         verified_items.len(),
         game_items.len(),
-        both_items.len()
+        both_items.len(),
+        controller_items.len()
     );
 
     assert!(
@@ -135,6 +162,23 @@ async fn test_to_provider_items_respects_filters() {
     assert!(
         game_items.iter().any(|i| i.id == "com.play0ad.zeroad"),
         "0 A.D. should appear in games-only list"
+    );
+
+    assert!(
+        all_items.len() > controller_items.len(),
+        "Unfiltered ({}) should be more than controller-only ({})",
+        all_items.len(),
+        controller_items.len()
+    );
+    assert!(
+        controller_items
+            .iter()
+            .any(|i| i.id == "org.DolphinEmu.dolphin-emu"),
+        "Dolphin should appear in controller-support list"
+    );
+    assert!(
+        !controller_items.iter().any(|i| i.id == "org.videolan.VLC"),
+        "VLC should NOT appear in controller-support list"
     );
 }
 
