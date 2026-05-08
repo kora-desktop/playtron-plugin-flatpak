@@ -41,12 +41,13 @@ fn has_controller_keywords(keywords: &Option<Vec<String>>, description: &str) ->
     })
 }
 
-struct AppTouchSupport {
+struct AppXmlData {
     touchscreen_support: bool,
     touchscreen_recommended: bool,
+    is_foss: bool,
 }
 
-fn parse_appstream_touch_support(xml_bytes: &[u8]) -> HashMap<String, AppTouchSupport> {
+fn parse_appstream_xml_data(xml_bytes: &[u8]) -> HashMap<String, AppXmlData> {
     let mut result = HashMap::new();
     let mut reader = Reader::from_reader(xml_bytes);
     reader.config_mut().trim_text(true);
@@ -58,8 +59,10 @@ fn parse_appstream_touch_support(xml_bytes: &[u8]) -> HashMap<String, AppTouchSu
     let mut in_supports = false;
     let mut in_recommends = false;
     let mut in_control = false;
+    let mut in_project_license = false;
     let mut has_touch_supports = false;
     let mut has_touch_recommends = false;
+    let mut project_license: Option<String> = None;
 
     loop {
         match reader.read_event_into(&mut buf) {
@@ -69,9 +72,13 @@ fn parse_appstream_touch_support(xml_bytes: &[u8]) -> HashMap<String, AppTouchSu
                     current_id = None;
                     has_touch_supports = false;
                     has_touch_recommends = false;
+                    project_license = None;
                 }
                 b"id" if in_component && !in_supports && !in_recommends => {
                     in_id = true;
+                }
+                b"project_license" if in_component => {
+                    in_project_license = true;
                 }
                 b"supports" if in_component => {
                     in_supports = true;
@@ -87,19 +94,23 @@ fn parse_appstream_touch_support(xml_bytes: &[u8]) -> HashMap<String, AppTouchSu
             Ok(Event::End(ref e)) => match e.name().as_ref() {
                 b"component" => {
                     if let Some(id) = current_id.take() {
-                        if has_touch_supports || has_touch_recommends {
-                            result.insert(
-                                id,
-                                AppTouchSupport {
-                                    touchscreen_support: has_touch_supports || has_touch_recommends,
-                                    touchscreen_recommended: has_touch_recommends,
-                                },
-                            );
-                        }
+                        let is_foss = project_license
+                            .as_ref()
+                            .map(|l| !l.is_empty() && !l.contains("LicenseRef-proprietary"))
+                            .unwrap_or(false);
+                        result.insert(
+                            id,
+                            AppXmlData {
+                                touchscreen_support: has_touch_supports || has_touch_recommends,
+                                touchscreen_recommended: has_touch_recommends,
+                                is_foss,
+                            },
+                        );
                     }
                     in_component = false;
                 }
                 b"id" => in_id = false,
+                b"project_license" => in_project_license = false,
                 b"supports" => in_supports = false,
                 b"recommends" => in_recommends = false,
                 b"control" => in_control = false,
@@ -109,6 +120,11 @@ fn parse_appstream_touch_support(xml_bytes: &[u8]) -> HashMap<String, AppTouchSu
                 if in_id && current_id.is_none() {
                     if let Ok(text) = e.unescape() {
                         current_id = Some(text.to_string());
+                    }
+                }
+                if in_project_license && project_license.is_none() {
+                    if let Ok(text) = e.unescape() {
+                        project_license = Some(text.to_string());
                     }
                 }
                 if in_control {
@@ -154,6 +170,8 @@ pub struct CatalogEntry {
     pub touchscreen_support: bool,
     #[serde(default)]
     pub touchscreen_recommended: bool,
+    #[serde(default)]
+    pub is_foss: bool,
 }
 
 impl CatalogCache {
@@ -202,6 +220,7 @@ impl CatalogCache {
                     && (!filters.games_only || entry.is_game)
                     && (!filters.controller_support || entry.has_controller_support)
                     && (!filters.touchscreen_support_mandatory || entry.touchscreen_recommended)
+                    && (!filters.foss_only || entry.is_foss)
             })
             .map(|entry| ProviderItem {
                 id: entry.app_id.clone(),
@@ -227,14 +246,14 @@ impl CatalogCache {
     }
 
     async fn fetch_all_apps(client: &FlathubClient) -> ResultWithError<Vec<CatalogEntry>> {
-        let touch_map = match client.download_appstream_xml().await {
+        let xml_data = match client.download_appstream_xml().await {
             Ok(xml_bytes) => {
-                let map = parse_appstream_touch_support(&xml_bytes);
-                info!("Parsed touch support data for {} apps from AppStream XML", map.len());
+                let map = parse_appstream_xml_data(&xml_bytes);
+                info!("Parsed AppStream XML data for {} apps", map.len());
                 map
             }
             Err(e) => {
-                warn!("Failed to download AppStream XML, touch data unavailable: {}", e);
+                warn!("Failed to download AppStream XML: {}", e);
                 HashMap::new()
             }
         };
@@ -249,15 +268,16 @@ impl CatalogCache {
                     .as_str()
                     .map(|c| c.eq_ignore_ascii_case("game"))
                     .unwrap_or(false);
-                let touch = touch_map.get(&hit.app_id);
+                let xml = xml_data.get(&hit.app_id);
                 CatalogEntry {
                     app_id: hit.app_id,
                     name: hit.name.unwrap_or_default(),
                     verified: true,
                     is_game,
                     has_controller_support: false,
-                    touchscreen_support: touch.map_or(false, |t| t.touchscreen_support),
-                    touchscreen_recommended: touch.map_or(false, |t| t.touchscreen_recommended),
+                    touchscreen_support: xml.map_or(false, |x| x.touchscreen_support),
+                    touchscreen_recommended: xml.map_or(false, |x| x.touchscreen_recommended),
+                    is_foss: xml.map_or(false, |x| x.is_foss),
                 }
             })
             .collect();
@@ -313,7 +333,7 @@ impl CatalogCache {
         for app_id in remaining {
             let client = client.clone();
             let sem = semaphore.clone();
-            let touch = touch_map.get(&app_id).map(|t| (t.touchscreen_support, t.touchscreen_recommended));
+            let xml = xml_data.get(&app_id).map(|x| (x.touchscreen_support, x.touchscreen_recommended, x.is_foss));
             handles.push(tokio::spawn(async move {
                 let _permit = sem.acquire().await.ok()?;
                 let verified = client
@@ -346,8 +366,9 @@ impl CatalogCache {
                     verified,
                     is_game,
                     has_controller_support,
-                    touchscreen_support: touch.map_or(false, |t| t.0),
-                    touchscreen_recommended: touch.map_or(false, |t| t.1),
+                    touchscreen_support: xml.map_or(false, |x| x.0),
+                    touchscreen_recommended: xml.map_or(false, |x| x.1),
+                    is_foss: xml.map_or(false, |x| x.2),
                 })
             }));
         }

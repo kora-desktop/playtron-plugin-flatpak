@@ -63,6 +63,7 @@ filters:
   games_only: true
   controller_support: true
   touchscreen_support_mandatory: false
+  foss_only: false
   # app_allowlist:
   #   - com.play0ad.zeroad
   #   - org.luanti.luanti
@@ -78,6 +79,7 @@ Filters control which apps from the Flathub catalog appear in the library. All f
 | `games_only` | `true` | Only show apps categorized as games |
 | `controller_support` | `true` | Only show apps whose metadata mentions gamepad/controller support (heuristic) |
 | `touchscreen_support_mandatory` | `false` | Only show apps whose AppStream metadata recommends touch input |
+| `foss_only` | `false` | Only show apps with a FOSS license (excludes proprietary) |
 | `app_allowlist` | `[]` (empty) | When set, only listed app IDs appear in the catalog |
 
 Installed Flatpak apps always appear in the library regardless of filter settings.

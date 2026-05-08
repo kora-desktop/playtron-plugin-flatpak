@@ -95,6 +95,17 @@ async fn test_fetch_all_apps_includes_verified_and_unverified() {
         touch_apps.len(),
         recommended_apps.len()
     );
+
+    assert!(
+        zero_ad.is_foss,
+        "0 A.D. (GPL-2.0+) should be marked as FOSS"
+    );
+    let foss_apps: Vec<_> = cache.items.iter().filter(|e| e.is_foss).collect();
+    assert!(
+        !foss_apps.is_empty(),
+        "At least some apps should be marked as FOSS"
+    );
+    eprintln!("FOSS apps: {}", foss_apps.len());
 }
 
 #[tokio::test]
@@ -107,6 +118,7 @@ async fn test_to_provider_items_respects_filters() {
         games_only: false,
         controller_support: false,
         touchscreen_support_mandatory: false,
+        foss_only: false,
         app_allowlist: Vec::new(),
     };
     let verified_only = Filters {
@@ -114,6 +126,7 @@ async fn test_to_provider_items_respects_filters() {
         games_only: false,
         controller_support: false,
         touchscreen_support_mandatory: false,
+        foss_only: false,
         app_allowlist: Vec::new(),
     };
     let games_only = Filters {
@@ -121,6 +134,7 @@ async fn test_to_provider_items_respects_filters() {
         games_only: true,
         controller_support: false,
         touchscreen_support_mandatory: false,
+        foss_only: false,
         app_allowlist: Vec::new(),
     };
     let both = Filters {
@@ -128,6 +142,7 @@ async fn test_to_provider_items_respects_filters() {
         games_only: true,
         controller_support: false,
         touchscreen_support_mandatory: false,
+        foss_only: false,
         app_allowlist: Vec::new(),
     };
 
@@ -141,6 +156,7 @@ async fn test_to_provider_items_respects_filters() {
         games_only: false,
         controller_support: true,
         touchscreen_support_mandatory: false,
+        foss_only: false,
         app_allowlist: Vec::new(),
     };
     let controller_items = cache.to_provider_items(&controller_filter);
@@ -212,6 +228,7 @@ async fn test_to_provider_items_respects_filters() {
         games_only: false,
         controller_support: false,
         touchscreen_support_mandatory: false,
+        foss_only: false,
         app_allowlist: vec![
             "com.play0ad.zeroad".into(),
             "org.videolan.VLC".into(),
@@ -239,6 +256,7 @@ async fn test_to_provider_items_respects_filters() {
         games_only: true,
         controller_support: true,
         touchscreen_support_mandatory: false,
+        foss_only: false,
         app_allowlist: vec![
             "org.videolan.VLC".into(),
         ],
@@ -260,6 +278,7 @@ async fn test_to_provider_items_respects_filters() {
         games_only: false,
         controller_support: false,
         touchscreen_support_mandatory: true,
+        foss_only: false,
         app_allowlist: Vec::new(),
     };
     let touch_items = cache.to_provider_items(&touch_filter);
@@ -273,6 +292,27 @@ async fn test_to_provider_items_respects_filters() {
     assert!(
         !touch_items.is_empty(),
         "Some apps should have touchscreen recommended"
+    );
+
+    let foss_filter = Filters {
+        verified_only: false,
+        games_only: false,
+        controller_support: false,
+        touchscreen_support_mandatory: false,
+        foss_only: true,
+        app_allowlist: Vec::new(),
+    };
+    let foss_items = cache.to_provider_items(&foss_filter);
+    eprintln!("FOSS-only items: {}", foss_items.len());
+    assert!(
+        all_items.len() > foss_items.len(),
+        "Unfiltered ({}) should be more than FOSS-only ({})",
+        all_items.len(),
+        foss_items.len()
+    );
+    assert!(
+        foss_items.iter().any(|i| i.id == "com.play0ad.zeroad"),
+        "0 A.D. (GPL) should appear in FOSS-only list"
     );
 }
 
