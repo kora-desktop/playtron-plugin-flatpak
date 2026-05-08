@@ -1,6 +1,6 @@
 [package]
 name = "playtron-plugin-flatpak"
-version = "1.6.1"
+version = "1.0.0"
 edition = "2021"
 license = "GPL-2.0"
 description = "Flatpak plugin for Playtron GameOS"
