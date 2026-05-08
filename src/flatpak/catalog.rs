@@ -218,7 +218,7 @@ impl CatalogCache {
                 }
                 (!filters.verified_only || entry.verified)
                     && (!filters.games_only || entry.is_game)
-                    && (!filters.controller_support || entry.has_controller_support)
+                    && (!filters.controller_support_mandatory || entry.has_controller_support)
                     && (!filters.touchscreen_support_mandatory || entry.touchscreen_recommended)
                     && (!filters.foss_only || entry.is_foss)
             })

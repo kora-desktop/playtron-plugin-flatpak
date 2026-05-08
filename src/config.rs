@@ -32,8 +32,8 @@ pub struct Filters {
     pub verified_only: bool,
     #[serde(default = "default_true")]
     pub games_only: bool,
-    #[serde(default = "default_true")]
-    pub controller_support: bool,
+    #[serde(default)]
+    pub controller_support_mandatory: bool,
     #[serde(default)]
     pub touchscreen_support_mandatory: bool,
     #[serde(default)]
@@ -51,7 +51,7 @@ impl Default for Filters {
         Self {
             verified_only: true,
             games_only: true,
-            controller_support: true,
+            controller_support_mandatory: false,
             touchscreen_support_mandatory: false,
             foss_only: false,
             app_allowlist: Vec::new(),

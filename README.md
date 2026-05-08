@@ -61,7 +61,7 @@ cache_days: 30  # 0 to disable caching entirely
 filters:
   verified_only: true
   games_only: true
-  controller_support: true
+  controller_support_mandatory: false
   touchscreen_support_mandatory: false
   foss_only: false
   # app_allowlist:
@@ -77,7 +77,7 @@ Filters control which apps from the Flathub catalog appear in the library. All f
 |---|---|---|
 | `verified_only` | `true` | Only show apps verified by their developer on Flathub |
 | `games_only` | `true` | Only show apps categorized as games |
-| `controller_support` | `true` | Only show apps whose metadata mentions gamepad/controller support (heuristic) |
+| `controller_support_mandatory` | `false` | Only show apps whose metadata mentions gamepad/controller support (heuristic) |
 | `touchscreen_support_mandatory` | `false` | Only show apps whose AppStream metadata recommends touch input |
 | `foss_only` | `false` | Only show apps with a FOSS license (excludes proprietary) |
 | `app_allowlist` | `[]` (empty) | When set, only listed app IDs appear in the catalog |

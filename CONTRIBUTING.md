@@ -32,7 +32,7 @@ Add a `bool` field to `CatalogEntry` (e.g. `pub has_feature: bool`). This gets s
 Add a detection helper function near the top of the file alongside `is_game_category` and `has_controller_keywords`.
 
 Populate the field in `fetch_all_apps()` in two places:
-- **Collection entries** (the first ~1000 verified apps from `/collection/verified`): these don't include full appstream data, so you may need a parallel enrichment pass (see `controller_support` for an example).
+- **Collection entries** (the first ~1000 verified apps from `/collection/verified`): these don't include full appstream data, so you may need a parallel enrichment pass (see `controller_support_mandatory` for an example).
 - **Remaining entries** (fetched individually via `/appstream/{id}`): add the check inline where `is_game` and `has_controller_support` are set.
 
 ### 3. Config (`src/config.rs`)

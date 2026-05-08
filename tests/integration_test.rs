@@ -116,7 +116,7 @@ async fn test_to_provider_items_respects_filters() {
     let no_filters = Filters {
         verified_only: false,
         games_only: false,
-        controller_support: false,
+        controller_support_mandatory: false,
         touchscreen_support_mandatory: false,
         foss_only: false,
         app_allowlist: Vec::new(),
@@ -124,7 +124,7 @@ async fn test_to_provider_items_respects_filters() {
     let verified_only = Filters {
         verified_only: true,
         games_only: false,
-        controller_support: false,
+        controller_support_mandatory: false,
         touchscreen_support_mandatory: false,
         foss_only: false,
         app_allowlist: Vec::new(),
@@ -132,7 +132,7 @@ async fn test_to_provider_items_respects_filters() {
     let games_only = Filters {
         verified_only: false,
         games_only: true,
-        controller_support: false,
+        controller_support_mandatory: false,
         touchscreen_support_mandatory: false,
         foss_only: false,
         app_allowlist: Vec::new(),
@@ -140,7 +140,7 @@ async fn test_to_provider_items_respects_filters() {
     let both = Filters {
         verified_only: true,
         games_only: true,
-        controller_support: false,
+        controller_support_mandatory: false,
         touchscreen_support_mandatory: false,
         foss_only: false,
         app_allowlist: Vec::new(),
@@ -154,7 +154,7 @@ async fn test_to_provider_items_respects_filters() {
     let controller_filter = Filters {
         verified_only: false,
         games_only: false,
-        controller_support: true,
+        controller_support_mandatory: true,
         touchscreen_support_mandatory: false,
         foss_only: false,
         app_allowlist: Vec::new(),
@@ -226,7 +226,7 @@ async fn test_to_provider_items_respects_filters() {
     let allowlist_filter = Filters {
         verified_only: false,
         games_only: false,
-        controller_support: false,
+        controller_support_mandatory: false,
         touchscreen_support_mandatory: false,
         foss_only: false,
         app_allowlist: vec![
@@ -254,7 +254,7 @@ async fn test_to_provider_items_respects_filters() {
     let allowlist_override = Filters {
         verified_only: true,
         games_only: true,
-        controller_support: true,
+        controller_support_mandatory: true,
         touchscreen_support_mandatory: false,
         foss_only: false,
         app_allowlist: vec![
@@ -276,7 +276,7 @@ async fn test_to_provider_items_respects_filters() {
     let touch_filter = Filters {
         verified_only: false,
         games_only: false,
-        controller_support: false,
+        controller_support_mandatory: false,
         touchscreen_support_mandatory: true,
         foss_only: false,
         app_allowlist: Vec::new(),
@@ -297,7 +297,7 @@ async fn test_to_provider_items_respects_filters() {
     let foss_filter = Filters {
         verified_only: false,
         games_only: false,
-        controller_support: false,
+        controller_support_mandatory: false,
         touchscreen_support_mandatory: false,
         foss_only: true,
         app_allowlist: Vec::new(),

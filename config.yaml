@@ -3,7 +3,7 @@ cache_days: 30  # 0 to disable caching entirely
 filters:
   verified_only: true
   games_only: true
-  controller_support: true
+  controller_support_mandatory: false
   touchscreen_support_mandatory: false
   foss_only: false
   # app_allowlist:          # When set, ONLY these apps appear in the catalog
