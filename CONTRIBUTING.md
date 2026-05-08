@@ -11,6 +11,7 @@ Filters restrict which Flathub apps appear in the catalog. Each filter is toggle
 
 - **Boolean filters** (e.g. `verified_only`, `games_only`) — backed by a cached `bool` per app in `CatalogEntry`. Adding one touches five files (see below).
 - **List filters** (e.g. `app_allowlist`) — a `Vec<String>` of app IDs in config. When empty, no filtering is applied. When populated, only listed apps pass through. These are purely serving-time filters with no cached data needed.
+- **XML-sourced filters** (e.g. `touchscreen_support_mandatory`) — backed by data parsed from the raw AppStream XML catalog (`appstream.xml.gz`). The Flathub REST API strips `<supports>` and `<recommends>` elements, so this XML is downloaded and parsed during `fetch_all_apps()` to extract structured input-control data.
 
 Adding a new boolean filter touches five files:
 

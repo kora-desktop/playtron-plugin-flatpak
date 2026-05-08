@@ -79,6 +79,22 @@ async fn test_fetch_all_apps_includes_verified_and_unverified() {
         dolphin.has_controller_support,
         "Dolphin should have controller support (description mentions controllers)"
     );
+
+    let touch_apps: Vec<_> = cache.items.iter().filter(|e| e.touchscreen_support).collect();
+    assert!(
+        !touch_apps.is_empty(),
+        "At least some apps should have touchscreen support from AppStream XML"
+    );
+    let recommended_apps: Vec<_> = cache.items.iter().filter(|e| e.touchscreen_recommended).collect();
+    assert!(
+        !recommended_apps.is_empty(),
+        "At least some apps should have touchscreen recommended from AppStream XML"
+    );
+    eprintln!(
+        "Touch support: {} apps, Touch recommended: {} apps",
+        touch_apps.len(),
+        recommended_apps.len()
+    );
 }
 
 #[tokio::test]
@@ -90,24 +106,28 @@ async fn test_to_provider_items_respects_filters() {
         verified_only: false,
         games_only: false,
         controller_support: false,
+        touchscreen_support_mandatory: false,
         app_allowlist: Vec::new(),
     };
     let verified_only = Filters {
         verified_only: true,
         games_only: false,
         controller_support: false,
+        touchscreen_support_mandatory: false,
         app_allowlist: Vec::new(),
     };
     let games_only = Filters {
         verified_only: false,
         games_only: true,
         controller_support: false,
+        touchscreen_support_mandatory: false,
         app_allowlist: Vec::new(),
     };
     let both = Filters {
         verified_only: true,
         games_only: true,
         controller_support: false,
+        touchscreen_support_mandatory: false,
         app_allowlist: Vec::new(),
     };
 
@@ -120,6 +140,7 @@ async fn test_to_provider_items_respects_filters() {
         verified_only: false,
         games_only: false,
         controller_support: true,
+        touchscreen_support_mandatory: false,
         app_allowlist: Vec::new(),
     };
     let controller_items = cache.to_provider_items(&controller_filter);
@@ -190,6 +211,7 @@ async fn test_to_provider_items_respects_filters() {
         verified_only: false,
         games_only: false,
         controller_support: false,
+        touchscreen_support_mandatory: false,
         app_allowlist: vec![
             "com.play0ad.zeroad".into(),
             "org.videolan.VLC".into(),
@@ -216,6 +238,7 @@ async fn test_to_provider_items_respects_filters() {
         verified_only: true,
         games_only: true,
         controller_support: true,
+        touchscreen_support_mandatory: false,
         app_allowlist: vec![
             "org.videolan.VLC".into(),
         ],
@@ -230,6 +253,26 @@ async fn test_to_provider_items_respects_filters() {
     assert!(
         override_items.iter().any(|i| i.id == "org.videolan.VLC"),
         "VLC should appear even with all boolean filters enabled"
+    );
+
+    let touch_filter = Filters {
+        verified_only: false,
+        games_only: false,
+        controller_support: false,
+        touchscreen_support_mandatory: true,
+        app_allowlist: Vec::new(),
+    };
+    let touch_items = cache.to_provider_items(&touch_filter);
+    eprintln!("Touchscreen recommended items: {}", touch_items.len());
+    assert!(
+        all_items.len() > touch_items.len(),
+        "Unfiltered ({}) should be more than touchscreen-mandatory ({})",
+        all_items.len(),
+        touch_items.len()
+    );
+    assert!(
+        !touch_items.is_empty(),
+        "Some apps should have touchscreen recommended"
     );
 }
 

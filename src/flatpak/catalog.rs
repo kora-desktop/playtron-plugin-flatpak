@@ -1,4 +1,6 @@
 use log::{info, warn};
+use quick_xml::events::Event;
+use quick_xml::reader::Reader;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -39,6 +41,102 @@ fn has_controller_keywords(keywords: &Option<Vec<String>>, description: &str) ->
     })
 }
 
+struct AppTouchSupport {
+    touchscreen_support: bool,
+    touchscreen_recommended: bool,
+}
+
+fn parse_appstream_touch_support(xml_bytes: &[u8]) -> HashMap<String, AppTouchSupport> {
+    let mut result = HashMap::new();
+    let mut reader = Reader::from_reader(xml_bytes);
+    reader.config_mut().trim_text(true);
+
+    let mut buf = Vec::new();
+    let mut current_id: Option<String> = None;
+    let mut in_component = false;
+    let mut in_id = false;
+    let mut in_supports = false;
+    let mut in_recommends = false;
+    let mut in_control = false;
+    let mut has_touch_supports = false;
+    let mut has_touch_recommends = false;
+
+    loop {
+        match reader.read_event_into(&mut buf) {
+            Ok(Event::Start(ref e)) => match e.name().as_ref() {
+                b"component" => {
+                    in_component = true;
+                    current_id = None;
+                    has_touch_supports = false;
+                    has_touch_recommends = false;
+                }
+                b"id" if in_component && !in_supports && !in_recommends => {
+                    in_id = true;
+                }
+                b"supports" if in_component => {
+                    in_supports = true;
+                }
+                b"recommends" if in_component => {
+                    in_recommends = true;
+                }
+                b"control" if in_supports || in_recommends => {
+                    in_control = true;
+                }
+                _ => {}
+            },
+            Ok(Event::End(ref e)) => match e.name().as_ref() {
+                b"component" => {
+                    if let Some(id) = current_id.take() {
+                        if has_touch_supports || has_touch_recommends {
+                            result.insert(
+                                id,
+                                AppTouchSupport {
+                                    touchscreen_support: has_touch_supports || has_touch_recommends,
+                                    touchscreen_recommended: has_touch_recommends,
+                                },
+                            );
+                        }
+                    }
+                    in_component = false;
+                }
+                b"id" => in_id = false,
+                b"supports" => in_supports = false,
+                b"recommends" => in_recommends = false,
+                b"control" => in_control = false,
+                _ => {}
+            },
+            Ok(Event::Text(ref e)) => {
+                if in_id && current_id.is_none() {
+                    if let Ok(text) = e.unescape() {
+                        current_id = Some(text.to_string());
+                    }
+                }
+                if in_control {
+                    if let Ok(text) = e.unescape() {
+                        if text.trim() == "touch" {
+                            if in_supports {
+                                has_touch_supports = true;
+                            }
+                            if in_recommends {
+                                has_touch_recommends = true;
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(e) => {
+                warn!("Error parsing AppStream XML: {}", e);
+                break;
+            }
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    result
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct CatalogCache {
     pub items: Vec<CatalogEntry>,
@@ -52,6 +150,10 @@ pub struct CatalogEntry {
     pub verified: bool,
     pub is_game: bool,
     pub has_controller_support: bool,
+    #[serde(default)]
+    pub touchscreen_support: bool,
+    #[serde(default)]
+    pub touchscreen_recommended: bool,
 }
 
 impl CatalogCache {
@@ -99,6 +201,7 @@ impl CatalogCache {
                 (!filters.verified_only || entry.verified)
                     && (!filters.games_only || entry.is_game)
                     && (!filters.controller_support || entry.has_controller_support)
+                    && (!filters.touchscreen_support_mandatory || entry.touchscreen_recommended)
             })
             .map(|entry| ProviderItem {
                 id: entry.app_id.clone(),
@@ -124,6 +227,18 @@ impl CatalogCache {
     }
 
     async fn fetch_all_apps(client: &FlathubClient) -> ResultWithError<Vec<CatalogEntry>> {
+        let touch_map = match client.download_appstream_xml().await {
+            Ok(xml_bytes) => {
+                let map = parse_appstream_touch_support(&xml_bytes);
+                info!("Parsed touch support data for {} apps from AppStream XML", map.len());
+                map
+            }
+            Err(e) => {
+                warn!("Failed to download AppStream XML, touch data unavailable: {}", e);
+                HashMap::new()
+            }
+        };
+
         let collection = client.get_verified_collection(1, 1000).await?;
         let mut entries: Vec<CatalogEntry> = collection
             .hits
@@ -134,12 +249,15 @@ impl CatalogCache {
                     .as_str()
                     .map(|c| c.eq_ignore_ascii_case("game"))
                     .unwrap_or(false);
+                let touch = touch_map.get(&hit.app_id);
                 CatalogEntry {
                     app_id: hit.app_id,
                     name: hit.name.unwrap_or_default(),
                     verified: true,
                     is_game,
                     has_controller_support: false,
+                    touchscreen_support: touch.map_or(false, |t| t.touchscreen_support),
+                    touchscreen_recommended: touch.map_or(false, |t| t.touchscreen_recommended),
                 }
             })
             .collect();
@@ -195,6 +313,7 @@ impl CatalogCache {
         for app_id in remaining {
             let client = client.clone();
             let sem = semaphore.clone();
+            let touch = touch_map.get(&app_id).map(|t| (t.touchscreen_support, t.touchscreen_recommended));
             handles.push(tokio::spawn(async move {
                 let _permit = sem.acquire().await.ok()?;
                 let verified = client
@@ -227,6 +346,8 @@ impl CatalogCache {
                     verified,
                     is_game,
                     has_controller_support,
+                    touchscreen_support: touch.map_or(false, |t| t.0),
+                    touchscreen_recommended: touch.map_or(false, |t| t.1),
                 })
             }));
         }

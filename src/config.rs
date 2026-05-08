@@ -35,6 +35,8 @@ pub struct Filters {
     #[serde(default = "default_true")]
     pub controller_support: bool,
     #[serde(default)]
+    pub touchscreen_support_mandatory: bool,
+    #[serde(default)]
     pub app_allowlist: Vec<String>,
 }
 
@@ -48,6 +50,7 @@ impl Default for Filters {
             verified_only: true,
             games_only: true,
             controller_support: true,
+            touchscreen_support_mandatory: false,
             app_allowlist: Vec::new(),
         }
     }

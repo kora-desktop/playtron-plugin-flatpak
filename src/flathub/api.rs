@@ -1,5 +1,7 @@
+use flate2::read::GzDecoder;
 use log::debug;
 use reqwest::Client;
+use std::io::Read;
 use std::time::Duration;
 
 use crate::constants;
@@ -87,5 +89,17 @@ impl FlathubClient {
             .await?;
         let collection: CollectionResponse = response.json().await?;
         Ok(collection)
+    }
+
+    pub async fn download_appstream_xml(&self) -> ResultWithError<Vec<u8>> {
+        let url = "https://dl.flathub.org/repo/appstream/x86_64/appstream.xml.gz";
+        debug!("Downloading AppStream XML catalog");
+
+        let response = self.client.get(url).send().await?;
+        let gz_bytes = response.bytes().await?;
+        let mut decoder = GzDecoder::new(&gz_bytes[..]);
+        let mut xml_bytes = Vec::new();
+        decoder.read_to_end(&mut xml_bytes)?;
+        Ok(xml_bytes)
     }
 }

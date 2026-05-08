@@ -4,10 +4,10 @@ filters:
   verified_only: true
   games_only: true
   controller_support: true
+  touchscreen_support_mandatory: false
   # app_allowlist:          # When set, ONLY these apps appear in the catalog
   #   - com.play0ad.zeroad
   #   - org.luanti.luanti
   # Future filters (all individually toggleable):
   # foss_only: false
-  # touchscreen_support: true
   # allow_emulators: false
