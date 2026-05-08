@@ -39,6 +39,8 @@ pub struct Filters {
     #[serde(default)]
     pub foss_only: bool,
     #[serde(default)]
+    pub allow_emulators: bool,
+    #[serde(default)]
     pub app_allowlist: Vec<String>,
 }
 
@@ -54,6 +56,7 @@ impl Default for Filters {
             controller_support_mandatory: false,
             touchscreen_support_mandatory: false,
             foss_only: false,
+            allow_emulators: false,
             app_allowlist: Vec::new(),
         }
     }

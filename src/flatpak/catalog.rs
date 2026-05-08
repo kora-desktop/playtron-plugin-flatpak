@@ -29,6 +29,10 @@ fn is_game_category(categories: &[String]) -> bool {
     categories.iter().any(|c| c.contains("Game"))
 }
 
+fn is_emulator_category(categories: &[String]) -> bool {
+    categories.iter().any(|c| c.contains("Emulator"))
+}
+
 const CONTROLLER_TERMS: &[&str] = &["gamepad", "controller", "joystick", "joypad"];
 
 fn has_controller_keywords(keywords: &Option<Vec<String>>, description: &str) -> bool {
@@ -172,6 +176,8 @@ pub struct CatalogEntry {
     pub touchscreen_recommended: bool,
     #[serde(default)]
     pub is_foss: bool,
+    #[serde(default)]
+    pub is_emulator: bool,
 }
 
 impl CatalogCache {
@@ -221,6 +227,7 @@ impl CatalogCache {
                     && (!filters.controller_support_mandatory || entry.has_controller_support)
                     && (!filters.touchscreen_support_mandatory || entry.touchscreen_recommended)
                     && (!filters.foss_only || entry.is_foss)
+                    && (filters.allow_emulators || !entry.is_emulator)
             })
             .map(|entry| ProviderItem {
                 id: entry.app_id.clone(),
@@ -278,40 +285,43 @@ impl CatalogCache {
                     touchscreen_support: xml.map_or(false, |x| x.touchscreen_support),
                     touchscreen_recommended: xml.map_or(false, |x| x.touchscreen_recommended),
                     is_foss: xml.map_or(false, |x| x.is_foss),
+                    is_emulator: false,
                 }
             })
             .collect();
         info!("Fetched {} verified apps from collection", entries.len());
 
-        // Enrich collection entries with controller support from appstream
+        // Enrich collection entries with controller support and emulator detection from appstream
         let semaphore = Arc::new(Semaphore::new(50));
-        let mut controller_handles = Vec::new();
+        let mut enrich_handles = Vec::new();
 
         for entry in &entries {
             let client = client.clone();
             let sem = semaphore.clone();
             let app_id = entry.app_id.clone();
-            controller_handles.push(tokio::spawn(async move {
+            enrich_handles.push(tokio::spawn(async move {
                 let _permit = sem.acquire().await.ok()?;
                 let appstream = client.get_appstream(&app_id).await.ok()?;
                 let has_support = has_controller_keywords(
                     &appstream.keywords,
                     appstream.description.as_deref().unwrap_or(""),
                 );
-                Some((app_id, has_support))
+                let is_emulator = is_emulator_category(&appstream.categories);
+                Some((app_id, has_support, is_emulator))
             }));
         }
 
-        let mut controller_map: HashMap<String, bool> = HashMap::new();
-        for handle in controller_handles {
-            if let Ok(Some((app_id, has_support))) = handle.await {
-                controller_map.insert(app_id, has_support);
+        let mut enrich_map: HashMap<String, (bool, bool)> = HashMap::new();
+        for handle in enrich_handles {
+            if let Ok(Some((app_id, has_support, is_emulator))) = handle.await {
+                enrich_map.insert(app_id, (has_support, is_emulator));
             }
         }
 
         for entry in &mut entries {
-            if let Some(&has_support) = controller_map.get(&entry.app_id) {
+            if let Some(&(has_support, is_emulator)) = enrich_map.get(&entry.app_id) {
                 entry.has_controller_support = has_support;
+                entry.is_emulator = is_emulator;
             }
         }
 
@@ -360,6 +370,10 @@ impl CatalogCache {
                         )
                     })
                     .unwrap_or(false);
+                let is_emulator = appstream
+                    .as_ref()
+                    .map(|info| is_emulator_category(&info.categories))
+                    .unwrap_or(false);
                 Some(CatalogEntry {
                     app_id,
                     name,
@@ -369,6 +383,7 @@ impl CatalogCache {
                     touchscreen_support: xml.map_or(false, |x| x.0),
                     touchscreen_recommended: xml.map_or(false, |x| x.1),
                     is_foss: xml.map_or(false, |x| x.2),
+                    is_emulator,
                 })
             }));
         }

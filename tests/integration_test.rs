@@ -79,6 +79,17 @@ async fn test_fetch_all_apps_includes_verified_and_unverified() {
         dolphin.has_controller_support,
         "Dolphin should have controller support (description mentions controllers)"
     );
+    assert!(
+        dolphin.is_emulator,
+        "Dolphin should be marked as an emulator"
+    );
+
+    let emulator_apps: Vec<_> = cache.items.iter().filter(|e| e.is_emulator).collect();
+    assert!(
+        !emulator_apps.is_empty(),
+        "At least some apps should be marked as emulators"
+    );
+    eprintln!("Emulator apps: {}", emulator_apps.len());
 
     let touch_apps: Vec<_> = cache.items.iter().filter(|e| e.touchscreen_support).collect();
     assert!(
@@ -119,6 +130,7 @@ async fn test_to_provider_items_respects_filters() {
         controller_support_mandatory: false,
         touchscreen_support_mandatory: false,
         foss_only: false,
+        allow_emulators: true,
         app_allowlist: Vec::new(),
     };
     let verified_only = Filters {
@@ -127,6 +139,7 @@ async fn test_to_provider_items_respects_filters() {
         controller_support_mandatory: false,
         touchscreen_support_mandatory: false,
         foss_only: false,
+        allow_emulators: false,
         app_allowlist: Vec::new(),
     };
     let games_only = Filters {
@@ -135,6 +148,7 @@ async fn test_to_provider_items_respects_filters() {
         controller_support_mandatory: false,
         touchscreen_support_mandatory: false,
         foss_only: false,
+        allow_emulators: false,
         app_allowlist: Vec::new(),
     };
     let both = Filters {
@@ -143,6 +157,7 @@ async fn test_to_provider_items_respects_filters() {
         controller_support_mandatory: false,
         touchscreen_support_mandatory: false,
         foss_only: false,
+        allow_emulators: false,
         app_allowlist: Vec::new(),
     };
 
@@ -157,6 +172,7 @@ async fn test_to_provider_items_respects_filters() {
         controller_support_mandatory: true,
         touchscreen_support_mandatory: false,
         foss_only: false,
+        allow_emulators: false,
         app_allowlist: Vec::new(),
     };
     let controller_items = cache.to_provider_items(&controller_filter);
@@ -229,6 +245,7 @@ async fn test_to_provider_items_respects_filters() {
         controller_support_mandatory: false,
         touchscreen_support_mandatory: false,
         foss_only: false,
+        allow_emulators: false,
         app_allowlist: vec![
             "com.play0ad.zeroad".into(),
             "org.videolan.VLC".into(),
@@ -257,6 +274,7 @@ async fn test_to_provider_items_respects_filters() {
         controller_support_mandatory: true,
         touchscreen_support_mandatory: false,
         foss_only: false,
+        allow_emulators: false,
         app_allowlist: vec![
             "org.videolan.VLC".into(),
         ],
@@ -279,6 +297,7 @@ async fn test_to_provider_items_respects_filters() {
         controller_support_mandatory: false,
         touchscreen_support_mandatory: true,
         foss_only: false,
+        allow_emulators: false,
         app_allowlist: Vec::new(),
     };
     let touch_items = cache.to_provider_items(&touch_filter);
@@ -300,6 +319,7 @@ async fn test_to_provider_items_respects_filters() {
         controller_support_mandatory: false,
         touchscreen_support_mandatory: false,
         foss_only: true,
+        allow_emulators: false,
         app_allowlist: Vec::new(),
     };
     let foss_items = cache.to_provider_items(&foss_filter);
@@ -313,6 +333,50 @@ async fn test_to_provider_items_respects_filters() {
     assert!(
         foss_items.iter().any(|i| i.id == "com.play0ad.zeroad"),
         "0 A.D. (GPL) should appear in FOSS-only list"
+    );
+
+    let emulator_blocked = Filters {
+        verified_only: false,
+        games_only: false,
+        controller_support_mandatory: false,
+        touchscreen_support_mandatory: false,
+        foss_only: false,
+        allow_emulators: false,
+        app_allowlist: Vec::new(),
+    };
+    let emulator_allowed = Filters {
+        verified_only: false,
+        games_only: false,
+        controller_support_mandatory: false,
+        touchscreen_support_mandatory: false,
+        foss_only: false,
+        allow_emulators: true,
+        app_allowlist: Vec::new(),
+    };
+    let blocked_items = cache.to_provider_items(&emulator_blocked);
+    let allowed_items = cache.to_provider_items(&emulator_allowed);
+    eprintln!(
+        "Emulators blocked: {}, Emulators allowed: {}",
+        blocked_items.len(),
+        allowed_items.len()
+    );
+    assert!(
+        allowed_items.len() > blocked_items.len(),
+        "Allowing emulators ({}) should show more than blocking ({})",
+        allowed_items.len(),
+        blocked_items.len()
+    );
+    assert!(
+        !blocked_items
+            .iter()
+            .any(|i| i.id == "org.DolphinEmu.dolphin-emu"),
+        "Dolphin should NOT appear when emulators are blocked"
+    );
+    assert!(
+        allowed_items
+            .iter()
+            .any(|i| i.id == "org.DolphinEmu.dolphin-emu"),
+        "Dolphin should appear when emulators are allowed"
     );
 }
 
