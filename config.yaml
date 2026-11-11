@@ -1,0 +1,14 @@
+cache_days: 30  # 0 to disable caching entirely
+
+filters:
+  verified_only: true
+  games_only: true
+  controller_support_mandatory: false
+  touchscreen_support_mandatory: false
+  foss_only: false
+  allow_emulators: false
+  # app_allowlist:          # When set, ONLY these apps appear in the catalog
+  #   - com.play0ad.zeroad
+  #   - org.luanti.luanti
+  # Future filters (all individually toggleable):
+  # allow_emulators: false

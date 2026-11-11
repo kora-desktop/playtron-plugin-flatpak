@@ -4,15 +4,15 @@ use zbus_macros::interface;
 
 pub struct Plugin {}
 
-#[interface(name = "one.playtron.plugin.Plugin")]
+#[interface(name = "inc.kora.plugin.Plugin")]
 impl Plugin {
     /// unique plugin id of the plugin (e.g. “steam”)
     ///
     /// # Example
     ///
-    /// busctl --user get-property one.playtron.EpicGames \
-    ///   /one/playtron/EpicGames/LegendaryClient0 \
-    ///   one.playtron.plugin.Plugin \
+    /// busctl --user get-property inc.kora.EpicGames \
+    ///   /inc/kora/EpicGames/LegendaryClient0 \
+    ///   inc.kora.plugin.Plugin \
     ///   Id
     #[zbus(property)]
     async fn id(&self) -> fdo::Result<&str> {
@@ -21,9 +21,9 @@ impl Plugin {
 
     /// Human readable name of the plugin (e.g. “Steam”)
     ///
-    /// busctl --user get-property one.playtron.EpicGames \
-    ///   /one/playtron/EpicGames/LegendaryClient0 \
-    ///   one.playtron.plugin.Plugin \
+    /// busctl --user get-property inc.kora.EpicGames \
+    ///   /inc/kora/EpicGames/LegendaryClient0 \
+    ///   inc.kora.plugin.Plugin \
     ///   Name
     #[zbus(property)]
     async fn name(&self) -> fdo::Result<&str> {
@@ -32,9 +32,9 @@ impl Plugin {
 
     /// version of the plugin (e.g. “0.1.0”)
     ///
-    /// busctl --user get-property one.playtron.EpicGames \
-    ///   /one/playtron/EpicGames/LegendaryClient0 \
-    ///   one.playtron.plugin.Plugin \
+    /// busctl --user get-property inc.kora.EpicGames \
+    ///   /inc/kora/EpicGames/LegendaryClient0 \
+    ///   inc.kora.plugin.Plugin \
     ///   Version
     #[zbus(property)]
     async fn version(&self) -> fdo::Result<&str> {
@@ -43,9 +43,9 @@ impl Plugin {
 
     /// the plugin API version that the plugin supports
     ///
-    /// busctl --user get-property one.playtron.EpicGames \
-    ///   /one/playtron/EpicGames/LegendaryClient0 \
-    ///   one.playtron.plugin.Plugin \
+    /// busctl --user get-property inc.kora.EpicGames \
+    ///   /inc/kora/EpicGames/LegendaryClient0 \
+    ///   inc.kora.plugin.Plugin \
     ///   MinimumApiVersion
     #[zbus(property)]
     async fn minimum_api_version(&self) -> fdo::Result<&str> {
