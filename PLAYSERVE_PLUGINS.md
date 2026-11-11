@@ -20,7 +20,7 @@ item_id: The ID of an app in a provider’s store.
 
 Interfaces
 
-one.playtron.plugin.Manager
+inc.kora.plugin.Manager
 
 Methods
 
@@ -32,18 +32,18 @@ Arguments:
 
 bus_name: String 
 
-name of the bus on DBus that the plugin is listening on (e.g. one.playtron.plugin.Steam)
+name of the bus on DBus that the plugin is listening on (e.g. inc.kora.plugin.Steam)
 
 plugin_path: ObjectPath 
 
-path on DBus that the plugin is listening on (e.g. /one/playtron/plugins/Steam)
+path on DBus that the plugin is listening on (e.g. /inc/kora/plugins/Steam)
 
 Example Usage:
 
-busctl --user call one.playtron.Playserve \
-  /one/playtron/plugins/Manager \
-  one.playtron.plugin.Manager \
-  RegisterPlugin "so" "one.playtron.SteamBus" "/one/playtron/SteamBus/SteamClient0"
+busctl --user call inc.kora.Playserve \
+  /inc/kora/plugins/Manager \
+  inc.kora.plugin.Manager \
+  RegisterPlugin "so" "inc.kora.SteamBus" "/inc/kora/SteamBus/SteamClient0"
 
 
 
@@ -57,9 +57,9 @@ plugin_id: String
 
 unique plugin id of the plugin (e.g. “steam”)
 
-busctl --user call one.playtron.Playserve \
-  /one/playtron/plugins/Manager \
-  one.playtron.plugin.Manager \
+busctl --user call inc.kora.Playserve \
+  /inc/kora/plugins/Manager \
+  inc.kora.plugin.Manager \
   IsPluginRegistered "s" "steam"
 
 
@@ -72,9 +72,9 @@ Description: version of the plugin manager (e.g. “0.1.0”)
 
 Example Usage:
 
-busctl --user get-property one.playtron.Playserve \
-  /one/playtron/plugins/Manager \
-  one.playtron.plugin.Manager \
+busctl --user get-property inc.kora.Playserve \
+  /inc/kora/plugins/Manager \
+  inc.kora.plugin.Manager \
   Version
 
 
@@ -99,7 +99,7 @@ Description: Emitted when a drive is disconnected
 
 
 
-one.playtron.plugin.Plugin
+inc.kora.plugin.Plugin
 
 Properties
 
@@ -109,9 +109,9 @@ Description: unique plugin id of the plugin (e.g. “steam”)
 
 Example Usage:
 
-busctl --user get-property one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.plugin.Plugin \
+busctl --user get-property inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.plugin.Plugin \
   Id
 
 
@@ -122,9 +122,9 @@ Description: Human readable name of the plugin (e.g. “Steam”)
 
 Example Usage:
 
-busctl --user get-property one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.plugin.Plugin \
+busctl --user get-property inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.plugin.Plugin \
   NameInstalledAppDescription
 
 
@@ -135,9 +135,9 @@ Description: version of the plugin (e.g. “0.1.0”)
 
 Example Usage:
 
-busctl --user get-property one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.plugin.Plugin \
+busctl --user get-property inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.plugin.Plugin \
   Version
 
 
@@ -148,14 +148,14 @@ Description: the plugin API version that the plugin supports
 
 Example Usage:
 
-busctl --user get-property one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.plugin.Plugin \
+busctl --user get-property inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.plugin.Plugin \
   MinimumApiVersion 
 
 
 
-one.playtron.plugin.LibraryProvider
+inc.kora.plugin.LibraryProvider
 
 Interface for defining a library provider plugin.
 
@@ -167,9 +167,9 @@ Description: Returns a list of available install options for the given provider 
 
 Example Usage:
 
-busctl --user call one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.plugin.LibraryProvider \
+busctl --user call inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.plugin.LibraryProvider \
   GetInstallOptions "s" "460950"
 
 GetLaunchOptions(app_id: String) → []LaunchOption
@@ -178,9 +178,9 @@ Description: Returns a list of available launch options. This includes informati
 
 Example Usage:
 
-busctl --user call one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.plugin.LibraryProvider \
+busctl --user call inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.plugin.LibraryProvider \
   GetLaunchOptions "s" "460950"
 
 Install(app_id: String, disk_path: String, options: Dictionary)
@@ -189,9 +189,9 @@ Description: Start installing the app with the given provider app id to the give
 
 Example Usage:
 
-busctl --user call one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.plugin.LibraryProvider \
+busctl --user call inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.plugin.LibraryProvider \
   Install "ssa{sv}" "460950" "/dev/sda1" 2 'os' s windows 'language' s english
 
 
@@ -202,9 +202,9 @@ Description: Uninstalls the given app.
 
 Example Usage:
 
-busctl --user call one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.plugin.LibraryProvider \
+busctl --user call inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.plugin.LibraryProvider \
   Uninstall "s" "460950"
 
 
@@ -215,9 +215,9 @@ Description: Moves the given app to another disk and returns the new install dir
 
 Example Usage:
 
-busctl --user call one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.plugin.LibraryProvider \
+busctl --user call inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.plugin.LibraryProvider \
   MoveItem "ss" "460950" "/dev/sda3"
 
 
@@ -228,9 +228,9 @@ Description: Start updating the given game. Once the update starts, the plugin w
 
 Example Usage:
 
-busctl --user call one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.plugin.LibraryProvider \
+busctl --user call inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.plugin.LibraryProvider \
   Update "s" "460950"
 
 
@@ -241,9 +241,9 @@ Description: Returns the metadata of the app.
 
 Example Usage:
 
-busctl --user call one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.plugin.LibraryProvider \
+busctl --user call inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.plugin.LibraryProvider \
   GetAppMetadata "s" "460950"
 
 
@@ -254,9 +254,9 @@ Description: Returns all provider items.
 
 Example Usage:
 
-busctl --user call one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.plugin.LibraryProvider \
+busctl --user call inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.plugin.LibraryProvider \
   GetProviderItem "s" "460950"
 
 
@@ -267,9 +267,9 @@ Description: Returns all provider items.
 
 Example Usage:
 
-busctl --user call one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.plugin.LibraryProvider \
+busctl --user call inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.plugin.LibraryProvider \
   GetProviderItems
 
 
@@ -280,9 +280,9 @@ Description: Trigger discovery of provider items. Should emit LibraryUpdated sig
 
 Example Usage:
 
-busctl --user call one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.plugin.LibraryProvider \
+busctl --user call inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.plugin.LibraryProvider \
   Refresh
 
 
@@ -292,9 +292,9 @@ Description: Obtain the list of CloudPaths applicable for given app_id and platf
 
 Example Usage:
 
-busctl --user call one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.plugin.LibraryProvider \
+busctl --user call inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.plugin.LibraryProvider \
   GetSavePathPatterns ss 730 windows
 
 
@@ -307,9 +307,9 @@ Description: Name of the provider which this plugins represents (has to be uniqu
 
 Example Usage:
 
-busctl --user get-property one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.plugin.LibraryProvider \
+busctl --user get-property inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.plugin.LibraryProvider \
   Provider
 
 
@@ -320,9 +320,9 @@ Description: Human readable name of the library provider
 
 Example Usage:
 
-busctl --user get-property one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.plugin.LibraryProvider \
+busctl --user get-property inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.plugin.LibraryProvider \
   Name
 
 
@@ -384,7 +384,7 @@ InstalledAppsUpdated()
 
 Description: Emitted when installed apps store has been updated.
 
-one.playtron.plugin.CloudSaveProvider
+inc.kora.plugin.CloudSaveProvider
 
 Interface for defining how to synchronize cloud saves.
 
@@ -396,9 +396,9 @@ Description: Start uploading the save data for the given provider app id using t
 
 Example Usage:
 
-busctl --user call one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.plugin.CloudSaveProvider \
+busctl --user call inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.plugin.CloudSaveProvider \
   CloudSaveUpload "ssba(sssbas)" "460950" 1 "/path/to/saves"
 
 
@@ -409,9 +409,9 @@ Description: Start downloading the save data for the given provider app id using
 
 Example Usage:
 
-busctl --user call one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.plugin.CloudSaveProvider \
+busctl --user call inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.plugin.CloudSaveProvider \
   CloudSaveDownload "ssba(sssbas)" "460950" 1 "/path/to/saves"
 
 
@@ -422,7 +422,7 @@ CloudSaveSyncProgressed(app_id: String, progress: f64, state: CloudSyncOperation
 
 CloudSaveSyncFailed(app_id: String, error: String, local_update_time: u64, remote_update_time: u64, quota_usage: u64, quota: u64)
 
-one.playtron.auth.Cryptography
+inc.kora.auth.Cryptography
 
 Interface for encrypting secrets being sent over the dbus user session to prevent eavesdropping.
 
@@ -434,12 +434,12 @@ Description: Returns the public key used to send encrypted secrets. The data mus
 
 Example Usage:
 
-busctl --user call one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.auth.Cryptography \
+busctl --user call inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.auth.Cryptography \
   GetPublicKey
 
-one.playtron.auth.User
+inc.kora.auth.User
 
 Interface exposing authorization state and applicable user details.
 
@@ -451,9 +451,9 @@ Description: Switch session to chosen user. Called after initialization of the p
 
 Example Usage:
 
-busctl --user call one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.auth.User \
+busctl --user call inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.auth.User \
   ChangeUser "s" "PlaytronTest1"
 
 Logout(user_id: String)
@@ -462,9 +462,9 @@ Description: Logs specified user out of the provider.
 
 Example Usage:
 
-busctl --user call one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.auth.User \
+busctl --user call inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.auth.User \
   Logout "s" "PlaytronTest1"
 
 Properties
@@ -475,9 +475,9 @@ Description: The status of the provider authentication
 
 Example Usage:
 
-busctl --user get-property one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.auth.User \
+busctl --user get-property inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.auth.User \
   Status
 
 Username: String
@@ -486,9 +486,9 @@ Description: The displayname/username of the currently authenticated user. This 
 
 Example Usage:
 
-busctl --user get-property one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.auth.User \
+busctl --user get-property inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.auth.User \
   Username
 
 Identifier: String
@@ -497,9 +497,9 @@ Description: Internal identifier for given user. Value provided here shouldn’t
 
 Example Usage:
 
-busctl --user get-property one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.auth.User \
+busctl --user get-property inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.auth.User \
   Identifier
 
 Avatar: String
@@ -508,12 +508,12 @@ Description: An url to the avatar image. Empty if no avatar is available.
 
 Example Usage:
 
-busctl --user get-property one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.auth.User \
+busctl --user get-property inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.auth.User \
   Avatar
 
-one.playtron.auth.PasswordFlow
+inc.kora.auth.PasswordFlow
 
 Interface for defining how to log in to a provider using simple username and password authentication.
 
@@ -525,12 +525,12 @@ Description: Log in to the provider with the given username and password
 
 Example Usage:
 
-busctl --user call one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.auth.PasswordFlow \
+busctl --user call inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.auth.PasswordFlow \
   Login "ss" "PlaytronTest1" "mysecretpassword"
 
-one.playtron.auth.TwoFactorFlow
+inc.kora.auth.TwoFactorFlow
 
 Interface for defining how to log in to a provider using a two-factor code.
 
@@ -542,9 +542,9 @@ Description: Send the given two-factor code
 
 Example Usage:
 
-busctl --user call one.playtron.SteamBus \
-  /one/playtron/SteamBus/SteamClient0 \
-  one.playtron.auth.TwoFactorFlow \
+busctl --user call inc.kora.SteamBus \
+  /inc/kora/SteamBus/SteamClient0 \
+  inc.kora.auth.TwoFactorFlow \
   SendCode "s" "FY3LK"
 
 Signals
@@ -581,7 +581,7 @@ Args:
 
 message: message to display to the user
 
-one.playtron.auth.PortalFlow
+inc.kora.auth.PortalFlow
 
 Interface for defining how to log in to a provider using a portal flow where a webview is opened to get an authorization token.
 
@@ -617,7 +617,7 @@ ShowLibrarySyncView: bool
 
 Description: Whether the UI should navigate to the view displaying the import progress of the games. This should be true unless a plugin doesn’t implement LibraryProvider
 
-one.playtron.auth.QrFlow
+inc.kora.auth.QrFlow
 
 Interface for defining how to log in to a provider using a QR Code
 
@@ -637,7 +637,7 @@ CodeUpdated(token: String)
 
 Description: Emited every time a new QR code needs to be displayed. For example when the previous one is no longer valid
 
-one.playtron.auth.ApiToken
+inc.kora.auth.ApiToken
 
 Interface for defining how to log in to a provider using an API Token
 
@@ -647,7 +647,7 @@ Login(api_token: String) → String
 
 Description: Logs the user in using an API token
 
-one.playtron.plugin.ArtworkProvider
+inc.kora.plugin.ArtworkProvider
 
 Interface for defining an artwork provider plugin. This could be used to show custom artwork for games in the library, such as art from SteamGridDB.
 
@@ -657,7 +657,7 @@ GetArtworkMetadata(item_id: String) → []ArtworkMetadata
 
 Description: Returns a list of ArtworkMetadata.
 
-one.playtron.plugin.Settings
+inc.kora.plugin.Settings
 
 Interface for defining an artwork provider plugin. This could be used to show custom artwork for games in the library, such as art from SteamGridDB.
 
@@ -667,7 +667,7 @@ GetArtworkMetadata(item_id: String) → []ArtworkMetadata
 
 Description: Returns a list of ArtworkMetadata.
 
-one.playtron.CompatibilityTool
+inc.kora.CompatibilityTool
 
 Interface to provide plugins with needed functionality for compatibility tools
 
@@ -683,7 +683,7 @@ GetCompatibilityTools() → []CompatibilityTool
 
 Description: gets a list of installed compatibility tools
 
-one.playtron.plugin.CompatibilityTool
+inc.kora.plugin.CompatibilityTool
 
 Interface for defining how to handle compatibility tools for games
 
@@ -719,7 +719,7 @@ Description: Executable used to launch the tool
 
 
 
-one.playtron.plugin.SubscriptionProvider
+inc.kora.plugin.SubscriptionProvider
 
 Interface for defining interaction with subscriptions like EA Play, Ubisoft+, Game Pass.
 

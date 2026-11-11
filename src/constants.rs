@@ -1,5 +1,5 @@
-pub const BUS_NAME: &str = "one.playtron.plugin.flatpak";
-pub const CLIENT_PATH: &str = "/one/playtron/plugin/flatpak/PluginClient0";
+pub const BUS_NAME: &str = "inc.kora.plugin.flatpak";
+pub const CLIENT_PATH: &str = "/inc/kora/plugin/flatpak/PluginClient0";
 pub const PLUGIN_ID: &str = "flatpak";
 pub const NAME: &str = "Flatpak";
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

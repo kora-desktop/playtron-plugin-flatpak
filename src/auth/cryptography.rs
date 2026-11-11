@@ -12,7 +12,7 @@ impl Cryptography {
     }
 }
 
-#[interface(name = "one.playtron.auth.Cryptography")]
+#[interface(name = "inc.kora.auth.Cryptography")]
 impl Cryptography {
     async fn get_public_key(&mut self) -> (String, String) {
         let key_type: &str = "RSA-SHA256";

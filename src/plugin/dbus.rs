@@ -40,9 +40,9 @@ pub async fn register_plugin() {
         for attempt in 1..=5 {
             match conn
                 .call_method(
-                    Some("one.playtron.Playserve"),
-                    "/one/playtron/plugins/Manager",
-                    Some("one.playtron.plugin.Manager"),
+                    Some("inc.kora.Playserve"),
+                    "/inc/kora/plugins/Manager",
+                    Some("inc.kora.plugin.Manager"),
                     "RegisterPlugin",
                     &(BUS_NAME, &object_path),
                 )

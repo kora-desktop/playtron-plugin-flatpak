@@ -11,7 +11,7 @@ Table of Contents:
 ## Introduction
 
 This plugin provides [Flathub](https://flathub.org/) catalog integration for [Playtron GameOS](https://github.com/playtron-os/gameos).
-It registers as a D-Bus plugin (`one.playtron.plugin.flatpak`) with playserve and exposes the Flathub catalog as a browsable library,
+It registers as a D-Bus plugin (`inc.kora.plugin.flatpak`) with playserve and exposes the Flathub catalog as a browsable library,
 with support for searching, installing, and uninstalling Flatpak applications.
 
 ## Build

@@ -19,7 +19,7 @@ impl LibraryProvider {
     }
 }
 
-#[interface(name = "one.playtron.plugin.LibraryProvider")]
+#[interface(name = "inc.kora.plugin.LibraryProvider")]
 impl LibraryProvider {
     #[zbus(property)]
     async fn name(&self) -> &str {

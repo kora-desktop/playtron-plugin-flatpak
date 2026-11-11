@@ -76,8 +76,8 @@ Config loading priority: user file takes precedence. If user file exists, system
 **Files**: `Cargo.toml`, `constants.rs`, `pluginmanifest.json`, `Makefile`, `.releaserc.yaml`
 
 - Rename package to `playtron-plugin-flatpak`
-- DBus bus name: `one.playtron.plugin.flatpak`
-- Object path: `/one/playtron/plugin/flatpak/PluginClient0`
+- DBus bus name: `inc.kora.plugin.flatpak`
+- Object path: `/inc/kora/plugin/flatpak/PluginClient0`
 - Plugin ID: `"flatpak"`, Name: `"Flatpak"`
 - Remove unused deps: `fs_extra`, `sysinfo`, `regex`, `async-stream`, `tokio-util`, `parking_lot`
 - Update RPM assets in `Cargo.toml` `[package.metadata.generate-rpm]`:
@@ -230,10 +230,10 @@ Also add `src/lib.rs` to export modules for test access.
 1. `cargo clippy` passes with no warnings
 2. `cargo build` succeeds with no errors
 3. `cargo test` passes (unit tests)
-4. Run the plugin manually, verify it registers on DBus: `busctl --user list | grep one.playtron.plugin.flatpak`
+4. Run the plugin manually, verify it registers on DBus: `busctl --user list | grep inc.kora.plugin.flatpak`
 5. Call methods via busctl to verify responses:
-   - `busctl --user get-property one.playtron.plugin.flatpak /one/playtron/plugin/flatpak/PluginClient0 one.playtron.plugin.Plugin Id`
-   - `busctl --user call one.playtron.plugin.flatpak /one/playtron/plugin/flatpak/PluginClient0 one.playtron.plugin.LibraryProvider GetInstalledApps`
+   - `busctl --user get-property inc.kora.plugin.flatpak /inc/kora/plugin/flatpak/PluginClient0 inc.kora.plugin.Plugin Id`
+   - `busctl --user call inc.kora.plugin.flatpak /inc/kora/plugin/flatpak/PluginClient0 inc.kora.plugin.LibraryProvider GetInstalledApps`
 6. Run integration tests: `cargo test -- --ignored` (requires flatpak + network)
 7. Verify config file is created and respected (toggle verified_only, observe filtered results)
 
