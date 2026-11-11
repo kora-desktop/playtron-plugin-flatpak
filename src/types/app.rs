@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::utils::date::optional_date_serializer;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -92,7 +91,7 @@ pub enum UpdateStage {
     Done,
 }
 
-#[derive(Serialize, Deserialize, Type, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Type, Debug, Default)]
 pub enum ReleaseState {
     #[default]
     #[serde(alias = "released")]
@@ -103,7 +102,7 @@ pub enum ReleaseState {
     Unreleased = 2,
 }
 
-#[derive(Serialize, Deserialize, Type, Debug, Clone)]
+#[derive(Serialize, Deserialize, Type, Debug)]
 pub struct ProviderItem {
     pub id: String,
     pub name: String,

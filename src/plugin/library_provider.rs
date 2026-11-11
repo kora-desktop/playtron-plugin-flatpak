@@ -1,31 +1,33 @@
 #![allow(clippy::too_many_arguments)]
 use crate::constants::{LIBRARY_PROVIDER_ID, LIBRARY_PROVIDER_NAME};
-use crate::flatpak::service::FlatpakService;
+use crate::local::service::LocalService;
 use crate::types::app::{DownloadStage, EulaEntry, InstalledApp, LaunchOption, ProviderItem};
 use crate::types::cloud_sync::CloudPath;
 use std::collections::HashMap;
-use tokio::sync::mpsc;
 use zbus::fdo;
 use zbus::object_server::SignalEmitter;
 use zbus_macros::interface;
 
 pub struct LibraryProvider {
-    pub service: FlatpakService,
+    pub service: LocalService,
 }
 
 impl LibraryProvider {
-    pub fn new(service: FlatpakService) -> Self {
+    pub fn new(service: LocalService) -> Self {
         LibraryProvider { service }
     }
 }
 
-#[interface(name = "inc.kora.plugin.LibraryProvider")]
+#[interface(name = "one.playtron.plugin.LibraryProvider")]
 impl LibraryProvider {
+    /// Human readable name of the library provider
     #[zbus(property)]
     async fn name(&self) -> &str {
         LIBRARY_PROVIDER_NAME
     }
 
+    /// Name of the provider which this plugins represents
+    /// (has to be unique between all library provider plugins)
     #[zbus(property)]
     async fn provider(&self) -> &str {
         LIBRARY_PROVIDER_ID
@@ -33,9 +35,10 @@ impl LibraryProvider {
 
     #[zbus(property)]
     async fn install_target(&self) -> &str {
-        "flatpak"
+        "folder"
     }
 
+    /// Emitted when a installed game has a new version available to update.
     #[zbus(signal)]
     pub async fn app_new_version_found(
         emitter: &SignalEmitter<'_>,
@@ -43,6 +46,7 @@ impl LibraryProvider {
         version: String,
     ) -> zbus::Result<()>;
 
+    /// Install progressed signal
     #[zbus(signal)]
     pub async fn install_progressed(
         emitter: &SignalEmitter<'_>,
@@ -53,7 +57,9 @@ impl LibraryProvider {
         progress: f64,
     ) -> zbus::Result<()>;
 
+    /// Emitted when an install starts
     #[zbus(signal)]
+
     pub async fn install_started(
         emitter: &SignalEmitter<'_>,
         app_id: String,
@@ -65,9 +71,11 @@ impl LibraryProvider {
         language: String,
     ) -> zbus::Result<()>;
 
+    /// Emitted when a game’s installation step is completed.
     #[zbus(signal)]
     pub async fn install_completed(emitter: &SignalEmitter<'_>, value: String) -> zbus::Result<()>;
 
+    /// Emitted when a game’s installation step is failed.
     #[zbus(signal)]
     pub async fn install_failed(
         emitter: &SignalEmitter<'_>,
@@ -75,9 +83,11 @@ impl LibraryProvider {
         error: &str,
     ) -> zbus::Result<()>;
 
+    /// TODO Undocumented
     #[zbus(signal)]
     pub async fn installed_apps_updated(emitter: &SignalEmitter<'_>) -> zbus::Result<()>;
 
+    /// LaunchError signal emitted after calling pre_launch_hook
     #[zbus(signal)]
     pub async fn launch_error(
         emitter: &SignalEmitter<'_>,
@@ -85,15 +95,18 @@ impl LibraryProvider {
         error: &str,
     ) -> zbus::Result<()>;
 
+    /// LaunchReady signal emitted after calling pre_launch_hook
     #[zbus(signal)]
     pub async fn launch_ready(emitter: &SignalEmitter<'_>, app_id: &str) -> zbus::Result<()>;
 
+    /// Emitted when provider received an event about new library entries
     #[zbus(signal)]
     pub async fn library_updated(
         emitter: &SignalEmitter<'_>,
         new_items: &[ProviderItem],
     ) -> zbus::Result<()>;
 
+    /// Emitted when a game has finished being moved to a new folder
     #[zbus(signal)]
     async fn move_item_completed(
         emitter: &SignalEmitter<'_>,
@@ -101,6 +114,7 @@ impl LibraryProvider {
         install_folder: String,
     ) -> zbus::Result<()>;
 
+    /// Fired when a game has failed to be moved to a new folder
     #[zbus(signal)]
     pub async fn move_item_failed(
         emitter: &SignalEmitter<'_>,
@@ -108,6 +122,11 @@ impl LibraryProvider {
         error: String,
     ) -> zbus::Result<()>;
 
+    /// Emitted during MoveItem, sending progress of the move.
+    /// This signal is emitted to report the progress of a file move operation.
+    /// The `app_id` parameter identifies the application being moved, and the `progress`
+    /// parameter is a value between 0.0 and 1.0 indicating the percentage of the move
+    /// that has been completed.
     #[zbus(signal)]
     pub async fn move_item_progressed(
         emitter: &SignalEmitter<'_>,
@@ -115,22 +134,42 @@ impl LibraryProvider {
         progress: f32,
     ) -> zbus::Result<()>;
 
+    /// Retrieve EULAs for an app
     async fn get_eulas(
         &self,
-        _app_id: &str,
-        _country: &str,
-        _locale: &str,
+        app_id: &str,
+        country: &str,
+        locale: &str,
     ) -> fdo::Result<Vec<EulaEntry>> {
-        Ok(Vec::new())
+        match self.service.get_eulas(app_id, country, locale).await {
+            Ok(eulas) => Ok(eulas),
+            Err(e) => Err(fdo::Error::Failed(e.to_string())),
+        }
     }
 
+    /// Returns a list of available install options for the given provider app id.
+    /// Install options are a list of arbitrary values that the library provider knows
+    /// about which can affect what version of the app is installed and how it is installed
+    /// (e.g. “version”, “language”, “low-violence”, “branch”, etc.)
+    ///
+    /// # Example
+    ///
+    /// busctl --user call one.playtron.EpicGames \
+    ///   /one/playtron/EpicGames/LegendaryClient0 \
+    ///   one.playtron.plugin.LibraryProvider \
+    ///   GetInstallOptions "s" "460950"
     async fn get_install_options(
         &self,
-        _app_id: &str,
+        app_id: &str,
     ) -> fdo::Result<Vec<(String, String, Vec<String>)>> {
+        log::info!("get_install_options for {}", app_id);
         Ok(Vec::new())
     }
 
+    /// busctl --user call one.playtron.BasePlugin \
+    ///   /one/playtron/BasePlugin/PluginClient0 \
+    ///   one.playtron.plugin.LibraryProvider \
+    ///   GetInstalledApps
     async fn get_installed_apps(&self) -> fdo::Result<Vec<InstalledApp>> {
         log::info!("get_installed_apps");
         match self.service.get_installed_apps().await {
@@ -139,6 +178,14 @@ impl LibraryProvider {
         }
     }
 
+    /// Returns a provider item for a given provider app id.
+    ///
+    /// # Example
+    ///
+    /// busctl --user call one.playtron.EpicGames \
+    ///   /one/playtron/EpicGames/LegendaryClient0 \
+    ///   one.playtron.plugin.LibraryProvider \
+    ///   GetProviderItem "s" "460950"
     async fn get_provider_item(&self, app_id: String) -> fdo::Result<ProviderItem> {
         match self.service.get_provider_item(&app_id).await {
             Ok(item) => Ok(item),
@@ -146,25 +193,43 @@ impl LibraryProvider {
         }
     }
 
+    /// Returns all provider items.
+    ///
+    /// # Example
+    ///
+    /// busctl --user call one.playtron.EpicGames \
+    ///   /one/playtron/EpicGames/LegendaryClient0 \
+    ///   one.playtron.plugin.LibraryProvider \
+    ///   GetProviderItems
     async fn get_provider_items(&self) -> fdo::Result<Vec<ProviderItem>> {
-        log::info!("get_provider_items");
+        log::info!("Getting provider items");
         match self.service.get_provider_items().await {
-            Ok(items) => Ok(items),
+            Ok(new_items) => Ok(new_items),
             Err(err) => Err(fdo::Error::Failed(err.to_string())),
         }
     }
 
-    async fn get_post_install_steps(&self, _app_id: &str) -> fdo::Result<String> {
-        Ok("[]".to_string())
+    /// Return the components to be installed after the game is downloaded
+    async fn get_post_install_steps(&self, app_id: &str) -> fdo::Result<String> {
+        self.service.get_post_install_steps(app_id).await
     }
 
+    /// Returns a list of available launch options. This includes information
+    /// on how the game should be launched together with other useful metadata.
+    ///
+    /// # Example
+    ///
+    /// busctl --user call one.playtron.EpicGames \
+    ///   /one/playtron/EpicGames/LegendaryClient0 \
+    ///   one.playtron.plugin.LibraryProvider \
+    ///   GetLaunchOptions "s" "460950"
     async fn get_launch_options(
         &self,
         app_id: &str,
         _params: HashMap<String, zbus::zvariant::Value<'_>>,
     ) -> fdo::Result<Vec<LaunchOption>> {
         match self.service.get_launch_options(app_id).await {
-            Ok(options) => Ok(options),
+            Ok(launch_options) => Ok(launch_options),
             Err(err) => Err(fdo::Error::Failed(err.to_string())),
         }
     }
@@ -176,6 +241,19 @@ impl LibraryProvider {
         }
     }
 
+    /// Start installing the app with the given provider app id to the given
+    /// block device. It is the plugin’s responsibility to determine where on
+    /// the mounted disk the app will be installed. Available install options
+    /// can be queried by calling the GetInstallOptions method. Once the
+    /// install has started, the plugin will be responsible for sending
+    /// InstallProgressed signals about the progress of the install.
+    ///
+    /// # Example
+    ///
+    /// busctl --user call one.playtron.BasePlugin \
+    ///   /one/playtron/BasePlugin/PluginClient0 \
+    ///   one.playtron.plugin.LibraryProvider \
+    ///   Install "ssa{sv}" "Cinebench" "/dev/sda1" 2 'os' s windows 'language' s english
     async fn install(
         &self,
         app_id: &str,
@@ -183,128 +261,78 @@ impl LibraryProvider {
         _options: HashMap<String, zbus::zvariant::Value<'_>>,
         #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
     ) -> fdo::Result<i32> {
-        let app_id_owned = app_id.to_string();
-
-        let (tx, mut rx) = mpsc::channel(32);
-
-        let service = self.service.clone();
-        let app_id_task = app_id_owned.clone();
-        let install_handle =
-            tokio::spawn(async move { service.install_with_progress(&app_id_task, tx).await });
-
-        let install_dir = format!(
-            "{}/.local/share/flatpak/app/{}",
-            dirs::home_dir().unwrap_or_default().to_string_lossy(),
-            app_id
-        );
-
-        let mut started = false;
-        while let Some(progress) = rx.recv().await {
-            if !started {
-                emitter
-                    .install_started(
-                        app_id_owned.clone(),
-                        String::new(),
-                        install_dir.clone(),
-                        progress.total_size,
-                        true,
-                        "linux".to_string(),
-                        String::new(),
-                    )
-                    .await
-                    .ok();
-                started = true;
-            }
-            emitter
-                .install_progressed(
-                    app_id_owned.clone(),
-                    progress.stage,
-                    progress.bytes_transferred,
-                    progress.total_size,
-                    progress.progress,
-                )
-                .await
-                .ok();
-        }
-
-        match install_handle.await {
-            Ok(Ok(())) => {
-                emitter.install_completed(app_id_owned).await.ok();
-                Ok(0)
-            }
-            Ok(Err(e)) => {
-                emitter
-                    .install_failed(app_id, &e.to_string())
-                    .await
-                    .ok();
-                Err(fdo::Error::Failed(e.to_string()))
-            }
-            Err(e) => {
-                emitter
-                    .install_failed(app_id, &e.to_string())
-                    .await
-                    .ok();
-                Err(fdo::Error::Failed(e.to_string()))
-            }
-        }
+        // Fake the install since it's manual.
+        // Only needed for launch configs
+        emitter.install_completed(app_id.to_string()).await?;
+        Ok(0)
     }
 
+    /// Moves the given app to another disk and returns the new install directory.
+    ///
+    /// # Example
+    ///
+    /// busctl --user call one.playtron.EpicGames \
+    ///   /one/playtron/EpicGames/LegendaryClient0 \
+    ///   one.playtron.plugin.LibraryProvider \
+    ///   MoveItem "ss" "460950" "/dev/sda3"
     async fn move_item(
         &self,
-        _app_id: String,
-        _dest_path: String,
-        #[zbus(signal_emitter)] _emitter: SignalEmitter<'_>,
-    ) -> fdo::Result<()> {
-        Err(fdo::Error::NotSupported(
-            "Move is not supported for Flatpak apps".to_string(),
-        ))
-    }
-
-    async fn cancel_move_item(&self, _app_id: &str) -> fdo::Result<()> {
-        Err(fdo::Error::NotSupported(
-            "Move is not supported for Flatpak apps".to_string(),
-        ))
-    }
-
-    async fn uninstall(&self, app_id: &str) -> fdo::Result<()> {
-        self.service.uninstall(app_id).await
-    }
-
-    async fn update(
-        &self,
         app_id: String,
+        dest_path: String,
         #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
     ) -> fdo::Result<()> {
-        let (tx, mut rx) = mpsc::channel(32);
-
-        let service = self.service.clone();
-        let app_id_task = app_id.clone();
-        let update_handle =
-            tokio::spawn(async move { service.update_with_progress(&app_id_task, tx).await });
-
-        while let Some(progress) = rx.recv().await {
-            emitter
-                .install_progressed(
-                    app_id.clone(),
-                    progress.stage,
-                    progress.bytes_transferred,
-                    0,
-                    progress.progress,
-                )
-                .await
-                .ok();
-        }
-
-        match update_handle.await {
-            Ok(Ok(())) => {
-                emitter.install_completed(app_id).await.ok();
-                Ok(())
-            }
-            Ok(Err(e)) => Err(fdo::Error::Failed(e.to_string())),
+        match self
+            .service
+            .move_item(app_id.clone(), dest_path.clone(), emitter.clone())
+            .await
+        {
+            Ok(_) => Ok(()),
             Err(e) => Err(fdo::Error::Failed(e.to_string())),
         }
     }
 
+    async fn cancel_move_item(&self, app_id: &str) -> fdo::Result<()> {
+        log::info!("cancel move item for {}", app_id);
+        match self.service.cancel_move_item().await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(fdo::Error::Failed(e.to_string())),
+        }
+    }
+
+    /// Uninstalls the given app.
+    ///
+    /// # Example
+    ///
+    /// busctl --user call one.playtron.EpicGames \
+    ///   /one/playtron/EpicGames/LegendaryClient0 \
+    ///   one.playtron.plugin.LibraryProvider \
+    ///   Uninstall "s" "460950"
+    async fn uninstall(&self, app_id: &str) -> fdo::Result<()> {
+        self.service.uninstall(app_id).await
+    }
+
+    /// Start updating the given game. Once the update starts,
+    /// the plugin will be responsible for sending signals
+    /// about the progress of the update.
+    ///
+    /// # Example
+    ///
+    /// busctl --user call one.playtron.EpicGames \
+    ///   /one/playtron/EpicGames/LegendaryClient0 \
+    ///   one.playtron.plugin.LibraryProvider \
+    ///   Update "s" "460950"
+    async fn update(&self, _app_id: String) -> fdo::Result<()> {
+        Err(fdo::Error::Failed("Update is not supported".to_string()))
+    }
+
+    /// Obtain the list of CloudPaths applicable for given app_id and platform, if the list is empty it is assumed saves are not supported
+    ///
+    /// # Example
+    ///
+    /// busctl --user call one.playtron.EpicGames \
+    ///   /one/playtron/EpicGames/LegendaryClient0 \
+    ///   one.playtron.plugin.LibraryProvider \
+    ///   GetSavePathPatterns ss 730 windows
     async fn get_save_path_patterns(
         &self,
         app_id: &str,
@@ -314,57 +342,49 @@ impl LibraryProvider {
     }
 
     fn pause_install(&self) {
-        log::info!("pause_install");
+        log::info!("pause install");
     }
 
-    async fn refresh(
-        &self,
-        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
-    ) -> fdo::Result<()> {
+    /// Trigger discovery of provider items. Should emit LibraryUpdated signal if new items are discovered.
+    ///
+    /// # Example
+    ///
+    /// busctl --user call one.playtron.EpicGames \
+    ///   /one/playtron/EpicGames/LegendaryClient0 \
+    ///   one.playtron.plugin.LibraryProvider \
+    ///   Refresh
+    fn refresh(&self) -> fdo::Result<()> {
         log::info!("refresh");
-        match self.service.refresh().await {
-            Ok(items) => {
-                emitter.library_updated(&items).await.ok();
-                Ok(())
-            }
-            Err(e) => Err(fdo::Error::Failed(e.to_string())),
-        }
-    }
-
-    async fn pre_launch_hook(
-        &self,
-        app_id: &str,
-        _using_offline_mode: bool,
-        #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
-    ) -> fdo::Result<Vec<String>> {
-        emitter.launch_ready(app_id).await?;
-        self.service.pre_launch_hook(app_id).await
-    }
-
-    async fn post_launch_hook(&self, app_id: &str) -> fdo::Result<()> {
-        log::info!("post_launch_hook for {}", app_id);
         Ok(())
     }
 
-    async fn sync_installed_apps(
+    /// Executed before a game is launched. Should emit LaunchReady signal if the game can be launched.
+    async fn pre_launch_hook(
         &self,
+        app_id: &str,
+        using_offline_mode: bool,
         #[zbus(signal_emitter)] emitter: SignalEmitter<'_>,
-    ) -> fdo::Result<()> {
-        log::info!("sync_installed_apps");
-        match self.service.sync_installed_apps().await {
-            Ok(items) => {
-                emitter.library_updated(&items).await.ok();
-                Ok(())
-            }
-            Err(e) => Err(fdo::Error::Failed(e.to_string())),
-        }
+    ) -> fdo::Result<Vec<String>> {
+        let res = self
+            .service
+            .pre_launch_hook(app_id.to_string(), using_offline_mode)
+            .await;
+        emitter.launch_ready(app_id).await?;
+        res
+    }
+
+    /// Executed after a game has launched
+    async fn post_launch_hook(&self, app_id: &str) -> fdo::Result<()> {
+        log::info!("post launch hook for {}", app_id);
+        Ok(())
+    }
+
+    async fn sync_installed_apps(&self) -> fdo::Result<()> {
+        log::info!("sync installed apps");
+        Ok(())
     }
 
     async fn import(&self, app_id: &str, install_folder: &str) -> fdo::Result<()> {
-        log::info!("import {} from {}", app_id, install_folder);
-        self.service
-            .import(app_id, install_folder)
-            .await
-            .map_err(|e| fdo::Error::Failed(e.to_string()))
+        self.service.import(app_id, install_folder).await
     }
 }

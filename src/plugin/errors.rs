@@ -1,59 +1,58 @@
-#![allow(dead_code)]
 use num_derive::FromPrimitive;
 use thiserror::Error;
 
 #[derive(Copy, Clone, Error, Debug, PartialEq, FromPrimitive)]
 pub enum PluginError {
-    #[error("inc.kora.Error.DiskNotFound")]
+    #[error("one.playtron.Error.DiskNotFound")]
     DiskNotFound,
-    #[error("inc.kora.Error.DownloadInProgress")]
+    #[error("one.playtron.Error.DownloadInProgress")]
     DownloadInProgress,
-    #[error("inc.kora.Error.DownloadFailed")]
+    #[error("one.playtron.Error.DownloadFailed")]
     DownloadFailed,
-    #[error("inc.kora.Error.ContentNotFound")]
+    #[error("one.playtron.Error.ContentNotFound")]
     ContentNotFound,
-    #[error("inc.kora.Error.AppNotInstalled")]
+    #[error("one.playtron.Error.AppNotInstalled")]
     AppNotInstalled,
-    #[error("inc.kora.Error.InvalidAppId")]
+    #[error("one.playtron.Error.InvalidAppId")]
     InvalidAppId,
-    #[error("inc.kora.Error.NotLoggedIn")]
+    #[error("one.playtron.Error.NotLoggedIn")]
     NotLoggedIn,
-    #[error("inc.kora.Error.MissingDirectory")]
+    #[error("one.playtron.Error.MissingDirectory")]
     MissingDirectory,
-    #[error("inc.kora.Error.InvalidPassword")]
+    #[error("one.playtron.Error.InvalidPassword")]
     InvalidPassword,
-    #[error("inc.kora.Error.AuthenticationError")]
+    #[error("one.playtron.Error.AuthenticationError")]
     AuthenticationError,
-    #[error("inc.kora.Error.TfaTimedOut")]
+    #[error("one.playtron.Error.TfaTimedOut")]
     TfaTimedOut,
-    #[error("inc.kora.Error.RateLimitExceeded")]
+    #[error("one.playtron.Error.RateLimitExceeded")]
     RateLimitExceeded,
-    #[error("inc.kora.Error.AppUpdateRequired")]
+    #[error("one.playtron.Error.AppUpdateRequired")]
     AppUpdateRequired,
-    #[error("inc.kora.Error.DependencyUpdateRequired")]
+    #[error("one.playtron.Error.DependencyUpdateRequired")]
     DependencyUpdateRequired,
-    #[error("inc.kora.Error.Timeout")]
+    #[error("one.playtron.Error.Timeout")]
     Timeout,
-    #[error("inc.kora.Error.DependencyError")]
+    #[error("one.playtron.Error.DependencyError")]
     DependencyError,
-    #[error("inc.kora.Error.PreLaunchError")]
+    #[error("one.playtron.Error.PreLaunchError")]
     PreLaunchError,
-    #[error("inc.kora.Error.CloudConflict")]
+    #[error("one.playtron.Error.CloudConflict")]
     CloudConflict,
-    #[error("inc.kora.Error.CloudQuota")]
+    #[error("one.playtron.Error.CloudQuota")]
     CloudQuota,
-    #[error("inc.kora.Error.CloudFileDownload")]
+    #[error("one.playtron.Error.CloudFileDownload")]
     CloudFileDownload,
-    #[error("inc.kora.Error.CloudFileUpload")]
+    #[error("one.playtron.Error.CloudFileUpload")]
     CloudFileUpload,
-    #[error("inc.kora.Error.AppNotOwned")]
+    #[error("one.playtron.Error.AppNotOwned")]
     AppNotOwned,
-    #[error("inc.kora.Error.PlayingBlocked")]
+    #[error("one.playtron.Error.PlayingBlocked")]
     PlayingBlocked,
-    #[error("inc.kora.Error.NotEnoughSpace")]
+    #[error("one.playtron.Error.NotEnoughSpace")]
     NotEnoughSpace,
-    #[error("inc.kora.Error.Permission")]
+    #[error("one.playtron.Error.Permission")]
     Permission,
-    #[error("inc.kora.Error.NetworkRequired")]
+    #[error("one.playtron.Error.NetworkRequired")]
     NetworkRequired,
 }

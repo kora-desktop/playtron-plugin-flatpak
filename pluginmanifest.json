@@ -1,4 +1,4 @@
 {
-    "id": "flatpak",
-    "startup_command": "playtron-plugin-flatpak"
+    "id": "local",
+    "startup_command": "playtron-plugin-local"
 }

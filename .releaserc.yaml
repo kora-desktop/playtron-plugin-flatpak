@@ -46,7 +46,7 @@ plugins:
   # Publish artifacts as a GitHub release
   - - "@semantic-release/github"
     - assets:
-        - path: dist/playtron-plugin-flatpak-*.rpm
-        - path: dist/playtron-plugin-flatpak-*.rpm.sha256.txt
-        - path: dist/playtron-plugin-flatpak-*.tar.gz
-        - path: dist/playtron-plugin-flatpak-*.tar.gz.sha256.txt
+        - path: dist/playtron-plugin-local-*.rpm
+        - path: dist/playtron-plugin-local-*.rpm.sha256.txt
+        - path: dist/playtron-plugin-local-*.tar.gz
+        - path: dist/playtron-plugin-local-*.tar.gz.sha256.txt

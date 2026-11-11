@@ -33,15 +33,12 @@ install: build ## Install plugin to the given prefix (default: PREFIX=/usr)
 	install -D -m 755 target/$(TARGET_ARCH)/$(BUILD_TYPE)/$(NAME) \
 		$(PREFIX)/bin/$(NAME)
 	install -D -m 644 ./pluginmanifest.json \
-		$(PREFIX)/share/playtron/plugins/flatpak/pluginmanifest.json
-	install -D -m 644 ./config.yaml \
-		$(PREFIX)/share/playtron/plugins/flatpak/config.yaml
+		$(PREFIX)/share/playtron/plugin/local/pluginmanifest.json
 
 .PHONY: uninstall
 uninstall: ## Uninstall plugin
 	rm $(PREFIX)/bin/$(NAME)
-	rm $(PREFIX)/share/playtron/plugins/flatpak/pluginmanifest.json
-	rm $(PREFIX)/share/playtron/plugins/flatpak/config.yaml
+	rm $(PREFIX)/share/playtron/plugin/local/pluginmanifest.json
 
 ##@ Development
 
@@ -68,10 +65,6 @@ run: debug ## Build and run
 .PHONY: test
 test: debug ## Build and run all tests
 	cargo test -- --show-output
-
-.PHONY: test-integration
-test-integration: debug ## Run integration tests (requires flatpak + network)
-	cargo test -- --ignored --show-output
 
 .PHONY: clean
 clean: ## Remove build artifacts

@@ -1,4 +1,3 @@
-pub mod catalog;
-pub mod client;
+pub mod connector;
 pub mod service;
 pub mod watcher;
